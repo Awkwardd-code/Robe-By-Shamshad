@@ -1,0 +1,16 @@
+{
+  "name": "Robe by Shamshad",
+  "short_name": "Robe",
+  "description": "Modern clothing and apparel curated by Robe by Shamshad.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
