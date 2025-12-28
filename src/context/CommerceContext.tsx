@@ -19,39 +19,117 @@ import {
 } from "@/lib/orderSourceToken";
 
 // Updated Product interface to match what components expect
+type DeliveryInfo = {
+  isFree?: boolean;
+  charge?: number | string;
+  message?: string;
+};
+
 export interface Product {
-  oldPrice: number;
   id: string;
   name: string;
-  price: number;
-  image: string;
   slug: string;
+  price: number;
+  oldPrice: number;
+  image: string;
+  imageAlt?: string;
+
+  brand?: string;
   category?: string;
+  subcategory?: string;
   categoryName?: string;
+  sku?: string;
+  barcode?: string;
   description?: string;
+  summary?: string;
   shortDescription?: string;
-  tags?: string[];
-  unit?: string;
-  isCombo?: boolean;
-  stock?: number;
+
+  pricing?: {
+    current?: { currency: string; value: number; unit?: string };
+    original?: { currency: string; value: number; unit?: string };
+    discountPercentage?: number;
+  };
+
   inventory?: {
     quantity?: number;
+    threshold?: number;
+    status?: "in_stock" | "low_stock" | "out_of_stock" | string;
   };
-  rating?: number;
+
   ratings?: {
     averageRating?: number;
     totalReviews?: number;
   };
-  reviewsCount?: number;
-  delivery?: {
-    isFree: boolean;
-    charge?: number;
-    message?: string;
+
+  media?: {
+    thumbnail?: string;
+    gallery?: string[];
   };
+
+  details?: {
+    ingredients?: string[];
+    features?: string[];
+    usage?: string;
+    benefits?: string[];
+    warnings?: string;
+    certifications?: string[];
+    materials?: string[];
+    sizes?: string[];
+    colors?: string[];
+  };
+
+  createdAt?: string;
+  updatedAt?: string;
+
+  tags?: string[];
+  unit?: string;
+  isCombo?: boolean;
+  stock?: number;
+  rating?: number;
+  reviewsCount?: number;
+  reviewCount?: number;
+  delivery?: DeliveryInfo;
   deliveryCharge?: number;
+
+  badge?: string;
+  gallery?: Array<{ src: string; alt: string } | string>;
+  origin?: string;
+  harvestWindow?: string;
+  tasteNotes?: string[];
+  storage?: string;
+  validity?: {
+    startDate?: string;
+    endDate?: string;
+    isActive?: boolean;
+  };
+
+  currentPrice?: string;
+  originalPrice?: string;
+  priceValue?: number;
+  originalPriceValue?: number;
+  discount?: string;
+  salesCount?: number;
+  discountPercent?: number;
+  inStock?: boolean;
+  itemType?: string;
+  routeSlug?: string;
+  gender?: string;
+  salePrice?: number;
+  sizes?: string[];
+  colors?: string[];
 }
 
 export type CartEntry = { product: Product; quantity: number };
+
+export interface AppliedCoupon {
+  id: string;
+  code: string;
+  name?: string;
+  discountPercentage?: number;
+  discountedPrice?: number;
+  appliedAt: string;
+  discountAmount?: number;
+}
 
 export type CommerceContextValue = {
   cartItems: CartEntry[];
@@ -59,10 +137,13 @@ export type CommerceContextValue = {
   wishlistItems: Product[];
   userIp: string | null;
   isLoading: boolean;
+  appliedCoupon: AppliedCoupon | null;
 
   addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   clearCart: () => void;
+  applyCoupon: (coupon: AppliedCoupon | null) => void;
+  clearCoupon: () => void;
 
   addToWishlist: (product: Product) => void;
   removeFromWishlist: (productId: string) => void;
@@ -110,6 +191,7 @@ type PersistedState = {
   wishlist: Product[];
   ip: string | null;
   directCheckout: CartEntry[];
+  appliedCoupon: AppliedCoupon | null;
 };
 
 const ensureProduct = (product: unknown): product is Product => {
@@ -147,6 +229,25 @@ const sanitizeWishlist = (raw: unknown): Product[] => {
   return sanitized;
 };
 
+const sanitizeAppliedCoupon = (raw: unknown): AppliedCoupon | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as Partial<AppliedCoupon>;
+  if (typeof data.id !== "string" || typeof data.code !== "string") return null;
+  if (typeof data.appliedAt !== "string") return null;
+  return {
+    id: data.id,
+    code: data.code,
+    name: typeof data.name === "string" ? data.name : "",
+    discountPercentage:
+      typeof data.discountPercentage === "number" ? data.discountPercentage : undefined,
+    discountedPrice:
+      typeof data.discountedPrice === "number" ? data.discountedPrice : undefined,
+    appliedAt: data.appliedAt,
+    discountAmount:
+      typeof data.discountAmount === "number" ? data.discountAmount : undefined,
+  };
+};
+
 const readFromStorage = (): PersistedState | null => {
   if (typeof window === "undefined") return null;
   try {
@@ -163,6 +264,7 @@ const readFromStorage = (): PersistedState | null => {
       wishlist: sanitizeWishlist(parsed.wishlist),
       ip: typeof parsed.ip === "string" ? parsed.ip : null,
       directCheckout: sanitizeCartEntries(parsed.directCheckout),
+      appliedCoupon: sanitizeAppliedCoupon(parsed.appliedCoupon),
     };
   } catch (e) {
     console.warn("Failed to read commerce state from localStorage.", e);
@@ -197,6 +299,9 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
   const [directCheckoutItems, setDirectCheckoutItems] = useState<CartEntry[]>(
     persistedState?.directCheckout ?? []
   );
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(
+    persistedState?.appliedCoupon ?? null
+  );
 
   // Persist whenever anything changes
   useEffect(() => {
@@ -208,10 +313,11 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       wishlist: wishlistItems,
       ip: userIp ?? null,
       directCheckout: directCheckoutItems,
+      appliedCoupon,
     };
 
     writeToStorage(payload);
-  }, [cartItems, wishlistItems, userIp, directCheckoutItems]);
+  }, [cartItems, wishlistItems, userIp, directCheckoutItems, appliedCoupon]);
 
   // Fetch user IP once (won't erase anything)
   useEffect(() => {
@@ -257,6 +363,7 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       updated[existingIndex] = { ...current, quantity: current.quantity + q };
       return updated;
     });
+    setDirectCheckoutItems((previous) => (previous.length ? [] : previous));
   }, []);
 
   const removeFromCart = useCallback((productId: string) => {
@@ -266,6 +373,10 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearCart = useCallback(() => setCartItems([]), []);
+  const applyCoupon = useCallback((coupon: AppliedCoupon | null) => {
+    setAppliedCoupon(coupon);
+  }, []);
+  const clearCoupon = useCallback(() => setAppliedCoupon(null), []);
 
   // Wishlist operations
   const addToWishlist = useCallback((product: Product) => {
@@ -368,6 +479,9 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       addToCart,
       removeFromCart,
       clearCart,
+      appliedCoupon,
+      applyCoupon,
+      clearCoupon,
       addToWishlist,
       removeFromWishlist,
       clearWishlist,
@@ -398,6 +512,9 @@ export function CommerceProvider({ children }: { children: React.ReactNode }) {
       addToCart,
       removeFromCart,
       clearCart,
+      appliedCoupon,
+      applyCoupon,
+      clearCoupon,
       addToWishlist,
       removeFromWishlist,
       clearWishlist,

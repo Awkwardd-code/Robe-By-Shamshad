@@ -14,6 +14,7 @@ export const mapProduct = (apiProduct: Record<string, unknown>): ProductDetailPr
   const inventory = apiProduct.inventory as ProductDetailProps["inventory"] | undefined;
   const ratings = apiProduct.ratings as ProductDetailProps["ratings"] | undefined;
   const details = apiProduct.details as ProductDetailProps["details"] | undefined;
+  const delivery = apiProduct.delivery as ProductDetailProps["delivery"] | undefined;
   const mediaData = apiProduct.media as ProductDetailProps["media"] | undefined;
 
   const asString = (value: unknown) => (typeof value === "string" ? value : undefined);
@@ -71,6 +72,7 @@ export const mapProduct = (apiProduct: Record<string, unknown>): ProductDetailPr
         alt: `${apiProduct.name ?? "Product"} gallery image`,
       })) || [],
     details,
+    delivery,
     categoryName: typeof apiProduct.categoryName === "string" ? apiProduct.categoryName : undefined,
     createdAt: asString(apiProduct.createdAt),
     updatedAt: asString(apiProduct.updatedAt),
@@ -138,6 +140,7 @@ export async function fetchProductBySlug(rawSlug: string) {
           ratings: 1,
           media: 1,
           details: 1,
+          delivery: 1,
           categoryName: "$categoryDetails.name",
           badge: 1,
           origin: 1,

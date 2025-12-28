@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FaGoogle, FaEnvelope, FaLock, FaEye, FaEyeSlash, FaCheck } from "react-icons/fa";
 import { useState, ChangeEvent, FormEvent, CSSProperties } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 const robe = {
   cream: "#FBF3E8",
@@ -29,6 +30,7 @@ const LOGIN_ROUTE = "/api/auth/login";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setUser } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState(false);
@@ -88,6 +90,13 @@ export default function LoginPage() {
       }
 
       setFormData(initialFormState);
+      if (data?.user) {
+        const nextUser = {
+          ...data.user,
+          id: data.user.id ?? data.user._id
+        };
+        setUser(nextUser);
+      }
       router.push("/");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to sign in. Please try again.";

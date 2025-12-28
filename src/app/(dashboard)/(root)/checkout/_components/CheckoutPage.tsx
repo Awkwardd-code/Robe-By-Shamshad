@@ -4,16 +4,29 @@
 /* eslint-disable react/no-unescaped-entities */
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight, Phone, Mail, Clock, Package } from "lucide-react";
+import {
+  ChevronRight,
+  Phone,
+  Mail,
+  Clock,
+  Package,
+  Ticket,
+  X,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 import {
   useCommerce,
+  type AppliedCoupon,
   type CartEntry,
   type Product,
 } from "@/context/CommerceContext";
 import { useBuyNow, type SelectionPayload } from "@/context/BuyNowContext";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   cleanupOldOrderSources,
   clearCurrentOrderSource,
@@ -67,10 +80,198 @@ type AnyDeliverable = {
   [key: string]: unknown;
 };
 
+type AvailableCoupon = {
+  id: string;
+  code: string;
+  name?: string;
+  discountPercentage?: number;
+  discountedPrice?: number;
+};
+
+const currencyFormatter = new Intl.NumberFormat("en-US");
+
+// ==================== HELPER FUNCTIONS ====================
+
+const formatPriceBDT = (price: number) => `৳${currencyFormatter.format(price)}`;
+
+const parseChargeValue = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+  if (typeof value === "boolean") return value ? 0 : undefined;
+  return undefined;
+};
+
+const asBool = (v: unknown): boolean | undefined =>
+  typeof v === "boolean" ? v : undefined;
+
+const hasDeliveryChargeIncluded = (product: Product) => {
+  const dbCharge = parseChargeValue(product.delivery?.charge);
+  const deliveryFieldCharge = parseChargeValue(product.deliveryCharge);
+  const includedCharge = dbCharge ?? deliveryFieldCharge;
+  return includedCharge !== undefined && includedCharge > 0;
+};
+
+const getDeliveryDetail = (
+  item: AnyDeliverable,
+  latestSelection?: LatestSelection | null
+): DeliveryDetail | null => {
+  if (item.delivery && typeof item.delivery === "object") {
+    const dbCharge = parseChargeValue(item.delivery.charge);
+    const isFreeFlag = asBool(item.delivery.isFree);
+    const resolvedCharge = dbCharge !== undefined ? dbCharge : isFreeFlag ? 0 : undefined;
+    if (resolvedCharge !== undefined) {
+      const isFree = isFreeFlag ?? resolvedCharge === 0;
+      const detailSource: DeliveryDetail["source"] = item.isCombo
+        ? "combo_offer"
+        : "product";
+      return {
+        charge: resolvedCharge,
+        isFree,
+        message:
+          (item.delivery.message as string) ||
+          (isFree ? "Free Delivery" : `Delivery Charge: ${resolvedCharge} BDT`),
+        isFixed: true,
+        source: detailSource,
+        dataSource: "db",
+      };
+    }
+  }
+
+  if (item.deliveryCharge !== undefined) {
+    const charge = parseChargeValue(item.deliveryCharge);
+    if (charge !== undefined) {
+      const isFree = charge === 0;
+      const detailSource: DeliveryDetail["source"] = item.isCombo
+        ? "combo_offer"
+        : "product";
+      return {
+        charge,
+        isFree,
+        message: isFree ? "Free Delivery" : `Delivery Charge: ${charge} BDT`,
+        isFixed: true,
+        source: detailSource,
+        dataSource: "db",
+      };
+    }
+  }
+
+  if (item.isCombo && item.comboDeliveryCharge !== undefined) {
+    const charge = parseChargeValue(item.comboDeliveryCharge);
+    if (charge !== undefined) {
+      const isFree = charge === 0;
+      return {
+        charge,
+        isFree,
+        message: isFree
+          ? "Free Delivery (Combo)"
+          : `Delivery Charge: ${charge} BDT (Combo)`,
+        isFixed: true,
+        source: "combo_offer",
+        dataSource: "db",
+      };
+    }
+  }
+
+  if (latestSelection?.type === "combo") {
+    const comboData = latestSelection.payload.data as ComboSelectionData;
+    if (comboData?.comboOffer) {
+      const combo = comboData.comboOffer;
+
+      if (combo.delivery && typeof combo.delivery === "object") {
+        const dbCharge = parseChargeValue(combo.delivery.charge);
+        const isFreeFlag = asBool(combo.delivery.isFree);
+        const charge = dbCharge !== undefined ? dbCharge : isFreeFlag ? 0 : undefined;
+        if (charge !== undefined) {
+          const isFree = isFreeFlag ?? charge === 0;
+
+          return {
+            charge,
+            isFree,
+            message:
+              combo.delivery.message ||
+              (isFree
+                ? "Free Delivery (Combo)"
+                : `Delivery Charge: ${charge} BDT (Combo)`),
+            isFixed: true,
+            source: "combo_offer",
+            dataSource: "db",
+          };
+        }
+      }
+
+      if (combo.deliveryCharge !== undefined) {
+        const charge = parseChargeValue(combo.deliveryCharge) ?? 0;
+        const isFree = charge === 0;
+        return {
+          charge,
+          isFree,
+          message: isFree
+            ? "Free Delivery (Combo)"
+            : `Delivery Charge: ${charge} BDT (Combo)`,
+          isFixed: true,
+          source: "combo_offer",
+          dataSource: "db",
+        };
+      }
+    }
+  }
+
+  return null;
+};
+
+const findSmallestDbCharge = (details: DeliveryDetail[]): number | null => {
+  if (details.length === 0) return null;
+
+  const paidDetails = details.filter(
+    (detail) => !detail.isFree && detail.charge > 0
+  );
+
+  if (paidDetails.length === 0) return 0;
+
+  return Math.min(...paidDetails.map((detail) => detail.charge));
+};
+
+const isMaintenanceAmount = (value: number | undefined): boolean => {
+  if (value === undefined) return false;
+  const normalized = Math.round(value);
+  const priceStr = normalized.toString();
+  return priceStr === "49" || priceStr.endsWith("99");
+};
+
+const formatCouponBenefit = (coupon: AppliedCoupon) => {
+  if (coupon.discountPercentage && coupon.discountPercentage > 0) {
+    return `${coupon.discountPercentage}% off`;
+  }
+  if (coupon.discountedPrice && coupon.discountedPrice > 0) {
+    return `Pay ${formatPriceBDT(coupon.discountedPrice)}`;
+  }
+  return "Coupon";
+};
+
+const formatAppliedAt = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
+
+// ==================== MAIN COMPONENT ====================
+
 export default function CheckoutPage() {
-  const { clearCart, activeCheckoutItems } = useCommerce();
-  const { lastProductSelection, lastComboSelection, clearSelections } =
-    useBuyNow();
+  const { clearCart, activeCheckoutItems, appliedCoupon, applyCoupon, clearCoupon } =
+    useCommerce();
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const { lastProductSelection, lastComboSelection } = useBuyNow();
+  const isAuthenticated = Boolean(user);
+  const effectiveAppliedCoupon = isAuthenticated ? appliedCoupon : null;
 
   const latestSelection = useMemo<LatestSelection>(() => {
     if (lastProductSelection && lastComboSelection) {
@@ -78,12 +279,9 @@ export default function CheckoutPage() {
         ? { type: "product", payload: lastProductSelection }
         : { type: "combo", payload: lastComboSelection };
     }
-    if (lastProductSelection) {
+    if (lastProductSelection)
       return { type: "product", payload: lastProductSelection };
-    }
-    if (lastComboSelection) {
-      return { type: "combo", payload: lastComboSelection };
-    }
+    if (lastComboSelection) return { type: "combo", payload: lastComboSelection };
     return null;
   }, [lastProductSelection, lastComboSelection]);
 
@@ -94,7 +292,6 @@ export default function CheckoutPage() {
   ): Product | null => {
     if (!data || typeof data !== "object") return null;
     const candidate = data as unknown as Product;
-
     if (
       typeof candidate.id === "string" &&
       typeof candidate.name === "string" &&
@@ -102,14 +299,12 @@ export default function CheckoutPage() {
     ) {
       return candidate;
     }
-
     return null;
   };
 
   const checkoutItems = useMemo<CartEntry[]>(() => {
     if (latestSelection?.type === "combo") {
-      const comboData =
-        latestSelection.payload.data as ComboSelectionData | null;
+      const comboData = latestSelection.payload.data as ComboSelectionData | null;
       if (comboData?.cartProduct) {
         return [
           {
@@ -121,9 +316,7 @@ export default function CheckoutPage() {
     }
 
     if (latestSelection?.type === "product") {
-      const productData = asProductFromSelectionData(
-        latestSelection.payload.data
-      );
+      const productData = asProductFromSelectionData(latestSelection.payload.data);
       if (productData?.id) {
         return [
           {
@@ -138,13 +331,10 @@ export default function CheckoutPage() {
     return [];
   }, [activeCheckoutItems, latestSelection]);
 
+  // Ensure buttons always show pointer cursor
   useEffect(() => {
     const styleEl = document.createElement("style");
-    styleEl.textContent = `
-      button {
-        cursor: pointer;
-      }
-    `;
+    styleEl.textContent = `button { cursor: pointer; }`;
     document.head.appendChild(styleEl);
     return () => {
       document.head.removeChild(styleEl);
@@ -175,183 +365,202 @@ export default function CheckoutPage() {
     "db_fixed" | "inside_dhaka" | "outside_dhaka" | null
   >(null);
 
-  const formatPriceBDT = (price: number) => {
-    return `৳${new Intl.NumberFormat("en-US").format(price)}`;
-  };
+  // Coupon state
+  const [couponCode, setCouponCode] = useState("");
+  const [couponMessage, setCouponMessage] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>([]);
+  const [isLoadingCouponsList, setIsLoadingCouponsList] = useState(false);
+  const [availableCouponsError, setAvailableCouponsError] = useState<string | null>(
+    null
+  );
+  const lastSuggestedCouponRef = useRef<string>("");
 
-  const parseChargeValue = (value: unknown): number | undefined => {
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string") {
-      const parsed = Number(value);
-      return Number.isNaN(parsed) ? undefined : parsed;
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (!user) {
+      if (appliedCoupon) clearCoupon();
+      setCouponCode("");
+      setCouponMessage(null);
+      setCouponError(null);
     }
-    if (typeof value === "boolean") return value ? 0 : undefined;
-    return undefined;
-  };
+  }, [user, isAuthLoading, appliedCoupon, clearCoupon]);
 
-  const asBool = (v: unknown): boolean | undefined =>
-    typeof v === "boolean" ? v : undefined;
-
-  const hasDeliveryChargeIncluded = (product: Product) => {
-    const dbCharge = parseChargeValue(product.delivery?.charge);
-    const deliveryFieldCharge = parseChargeValue(product.deliveryCharge);
-    const includedCharge = dbCharge ?? deliveryFieldCharge;
-    return includedCharge !== undefined && includedCharge > 0;
-  };
-
-  const getDeliveryDetail = (item: AnyDeliverable): DeliveryDetail | null => {
-    // 1) delivery object with charge
-    if (item.delivery && typeof item.delivery === "object") {
-      const dbCharge = parseChargeValue(item.delivery.charge);
-      if (dbCharge !== undefined) {
-        const isFree = asBool(item.delivery.isFree) ?? dbCharge === 0;
-        const detailSource: DeliveryDetail["source"] = item.isCombo
-          ? "combo_offer"
-          : "product";
-        return {
-          charge: dbCharge,
-          isFree,
-          message:
-            (item.delivery.message as string) ||
-            (isFree ? "Free Delivery" : `Delivery Charge: ${dbCharge} BDT`),
-          isFixed: true,
-          source: detailSource,
-          dataSource: "db",
-        };
-      }
-    }
-
-    // 2) deliveryCharge field
-    if (item.deliveryCharge !== undefined) {
-      const charge = parseChargeValue(item.deliveryCharge);
-      if (charge !== undefined) {
-        const isFree = charge === 0;
-        const detailSource: DeliveryDetail["source"] = item.isCombo
-          ? "combo_offer"
-          : "product";
-        return {
-          charge,
-          isFree,
-          message: isFree ? "Free Delivery" : `Delivery Charge: ${charge} BDT`,
-          isFixed: true,
-          source: detailSource,
-          dataSource: "db",
-        };
-      }
-    }
-
-    // 3) comboDeliveryCharge
-    if (item.isCombo && item.comboDeliveryCharge !== undefined) {
-      const charge = parseChargeValue(item.comboDeliveryCharge);
-      if (charge !== undefined) {
-        const isFree = charge === 0;
-        return {
-          charge,
-          isFree,
-          message: isFree
-            ? "Free Delivery (Combo)"
-            : `Delivery Charge: ${charge} BDT (Combo)`,
-          isFixed: true,
-          source: "combo_offer",
-          dataSource: "db",
-        };
-      }
-    }
-
-    // 4) fallback from latestSelection comboOffer
-    if (latestSelection?.type === "combo") {
-      const comboData = latestSelection.payload.data as ComboSelectionData;
-      if (comboData?.comboOffer) {
-        const combo = comboData.comboOffer;
-
-        if (combo.delivery && typeof combo.delivery === "object") {
-          const dbCharge = parseChargeValue(combo.delivery.charge);
-          const charge = dbCharge ?? 0;
-          const isFree = asBool(combo.delivery.isFree) ?? charge === 0;
-
-          return {
-            charge,
-            isFree,
-            message:
-              combo.delivery.message ||
-              (isFree
-                ? "Free Delivery (Combo)"
-                : `Delivery Charge: ${charge} BDT (Combo)`),
-            isFixed: true,
-            source: "combo_offer",
-            dataSource: "db",
-          };
-        }
-
-        if (combo.deliveryCharge !== undefined) {
-          const charge = parseChargeValue(combo.deliveryCharge) ?? 0;
-          const isFree = charge === 0;
-          return {
-            charge,
-            isFree,
-            message: isFree
-              ? "Free Delivery (Combo)"
-              : `Delivery Charge: ${charge} BDT (Combo)`,
-            isFixed: true,
-            source: "combo_offer",
-            dataSource: "db",
-          };
-        }
-      }
-    }
-
-    return null;
-  };
-
-  // Delivery details maps
-  const deliveryDetailsByProductId = new Map<string, DeliveryDetail>();
-  const dbDeliveryDetails: DeliveryDetail[] = [];
-
-  checkoutItems.forEach((item) => {
-    const detail = getDeliveryDetail(item.product as unknown as AnyDeliverable);
-    if (detail) {
-      deliveryDetailsByProductId.set(item.product.id, detail);
-      if (detail.dataSource === "db") dbDeliveryDetails.push(detail);
-    }
-  });
-
-  const findSmallestDbCharge = (details: DeliveryDetail[]): number | null => {
-    if (details.length === 0) return null;
-
-    const paid = details.filter((d) => !d.isFree && d.charge > 0);
-    if (paid.length === 0) return 0;
-
-    return Math.min(...paid.map((d) => d.charge));
-  };
-
-  const smallestDbCharge = useMemo(
-    () => findSmallestDbCharge(dbDeliveryDetails),
-    [dbDeliveryDetails]
+  const suggestCouponCode = useCallback(
+    (nextCode: string, allowWhenApplied = false) => {
+      if (effectiveAppliedCoupon && !allowWhenApplied) return;
+      const trimmed = couponCode.trim();
+      const hasManualEntry =
+        trimmed.length > 0 && trimmed !== lastSuggestedCouponRef.current;
+      if (hasManualEntry) return;
+      setCouponCode(nextCode);
+      lastSuggestedCouponRef.current = nextCode;
+    },
+    [couponCode, effectiveAppliedCoupon]
   );
 
-  const shouldUseDbDelivery = smallestDbCharge !== null;
+  const loadAvailableCoupons = useCallback(
+    async (options?: { allowWhenApplied?: boolean }) => {
+      if (!isAuthenticated) {
+        setAvailableCoupons([]);
+        setAvailableCouponsError(null);
+        lastSuggestedCouponRef.current = "";
+        return;
+      }
+
+      setIsLoadingCouponsList(true);
+      setAvailableCouponsError(null);
+      try {
+        const response = await fetch("/api/coupons/available?limit=6", {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.error || "Failed to load coupons.");
+        }
+
+        const data = await response.json();
+        const rawCoupons = Array.isArray(data?.coupons) ? data.coupons : [];
+        const normalized = rawCoupons
+          .map((coupon: any): AvailableCoupon => {
+            const id =
+              typeof coupon._id === "string" ? coupon._id : String(coupon._id ?? "");
+            return {
+              id,
+              code: typeof coupon.code === "string" ? coupon.code : "",
+              name: typeof coupon.name === "string" ? coupon.name : "",
+              discountPercentage:
+                typeof coupon.discountPercentage === "number"
+                  ? coupon.discountPercentage
+                  : undefined,
+              discountedPrice:
+                typeof coupon.discountedPrice === "number"
+                  ? coupon.discountedPrice
+                  : undefined,
+            };
+          })
+          .filter((coupon: AvailableCoupon) => coupon.code.trim().length > 0);
+
+        setAvailableCoupons(normalized);
+
+        const nextCode = normalized[0]?.code ?? "";
+        suggestCouponCode(nextCode, options?.allowWhenApplied ?? false);
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load available coupons.";
+        setAvailableCoupons([]);
+        setAvailableCouponsError(message);
+        if (!couponCode.trim() || couponCode === lastSuggestedCouponRef.current) {
+          setCouponCode("");
+          lastSuggestedCouponRef.current = "";
+        }
+      } finally {
+        setIsLoadingCouponsList(false);
+      }
+    },
+    [isAuthenticated, suggestCouponCode, couponCode]
+  );
+
+  useEffect(() => {
+    if (isAuthLoading) return;
+    if (!isAuthenticated) {
+      setAvailableCoupons([]);
+      setAvailableCouponsError(null);
+      lastSuggestedCouponRef.current = "";
+      return;
+    }
+
+    void loadAvailableCoupons();
+  }, [isAuthLoading, isAuthenticated]);
+
+  const handleApplyCoupon = async () => {
+    setCouponMessage(null);
+    setCouponError(null);
+
+    const code = couponCode.trim();
+    if (!code) {
+      setCouponError("Please enter a coupon code.");
+      return;
+    }
+
+    if (!user) {
+      setCouponError("Please log in to apply a coupon.");
+      return;
+    }
+
+    setIsApplyingCoupon(true);
+    try {
+      const response = await fetch("/api/coupons/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, subtotal }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || "Failed to apply coupon.");
+      }
+
+      const data = await response.json();
+      const coupon = data?.coupon as {
+        _id?: string;
+        name?: string;
+        code?: string;
+        discountPercentage?: number;
+        discountedPrice?: number;
+      };
+
+      if (!coupon?._id || !coupon.code) {
+        throw new Error("Invalid coupon response.");
+      }
+
+      const applied: AppliedCoupon = {
+        id: coupon._id,
+        code: coupon.code,
+        name: coupon.name ?? "",
+        discountPercentage: coupon.discountPercentage,
+        discountedPrice: coupon.discountedPrice,
+        appliedAt: data?.redemption?.appliedAt || new Date().toISOString(),
+        discountAmount:
+          typeof data?.redemption?.discountAmount === "number"
+            ? data.redemption.discountAmount
+            : undefined,
+      };
+
+      applyCoupon(applied);
+      setCouponMessage(`Coupon "${coupon.code}" applied!`);
+      setCouponCode("");
+      void loadAvailableCoupons({ allowWhenApplied: true });
+    } catch (error: any) {
+      setCouponError(error?.message || "Failed to apply coupon.");
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    clearCoupon();
+    setCouponMessage(null);
+    setCouponError(null);
+    void loadAvailableCoupons({ allowWhenApplied: true });
+  };
 
   const handleInputChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Price calculations
+  // ==================== PRICE CALCULATIONS ====================
+
   const baseSubtotal = checkoutItems.reduce(
     (acc, item) => acc + item.product.price * item.quantity,
     0
   );
-
-  const isMaintenanceAmount = (value: number | undefined): boolean => {
-    if (value === undefined) return false;
-    const normalized = Math.round(value);
-    const priceStr = normalized.toString();
-    return priceStr === "49" || priceStr.endsWith("99");
-  };
 
   const countMaintenanceUnitsForItem = (item: CartEntry) => {
     const productPrice =
@@ -380,7 +589,74 @@ export default function CheckoutPage() {
     0
   );
   const maintenanceFeeTotal = maintenanceUnitCount;
+
   const subtotal = baseSubtotal + maintenanceFeeTotal;
+
+  const discountAmount = (() => {
+    if (!effectiveAppliedCoupon) return 0;
+    if (
+      effectiveAppliedCoupon.discountPercentage &&
+      effectiveAppliedCoupon.discountPercentage > 0
+    ) {
+      return Math.round((subtotal * effectiveAppliedCoupon.discountPercentage) / 100);
+    }
+    if (
+      effectiveAppliedCoupon.discountedPrice &&
+      effectiveAppliedCoupon.discountedPrice > 0
+    ) {
+      return Math.max(0, subtotal - effectiveAppliedCoupon.discountedPrice);
+    }
+    return 0;
+  })();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!appliedCoupon) return;
+    if (appliedCoupon.discountAmount === discountAmount) return;
+    applyCoupon({
+      ...appliedCoupon,
+      discountAmount,
+    });
+  }, [isAuthenticated, appliedCoupon, discountAmount, applyCoupon]);
+
+  // ==================== ✅ DELIVERY (UPDATED) ====================
+
+  const deliverySummary = useMemo(() => {
+    const deliveryDetailsByProductId = new Map<string, DeliveryDetail>();
+    const dbDeliveryDetails: DeliveryDetail[] = [];
+
+    for (const item of checkoutItems) {
+      const detail = getDeliveryDetail(
+        item.product as unknown as AnyDeliverable,
+        latestSelection
+      );
+      if (detail) {
+        deliveryDetailsByProductId.set(item.product.id, detail);
+        if (detail.dataSource === "db") dbDeliveryDetails.push(detail);
+      }
+    }
+
+    // ✅ Only lock DB delivery if EVERY checkout item has a DB delivery detail
+    const allItemsHaveDbDelivery =
+      checkoutItems.length > 0 &&
+      checkoutItems.every((item) => deliveryDetailsByProductId.has(item.product.id));
+
+    const smallestDbCharge = findSmallestDbCharge(dbDeliveryDetails);
+
+    return {
+      deliveryDetailsByProductId,
+      dbDeliveryDetails,
+      smallestDbCharge,
+      allItemsHaveDbDelivery,
+    };
+  }, [checkoutItems, latestSelection]);
+
+  const deliveryDetailsByProductId = deliverySummary.deliveryDetailsByProductId;
+  const dbDeliveryDetails = deliverySummary.dbDeliveryDetails;
+  const smallestDbCharge = deliverySummary.smallestDbCharge;
+
+  const shouldUseDbDelivery =
+    deliverySummary.allItemsHaveDbDelivery && smallestDbCharge !== null;
 
   useEffect(() => {
     if (shouldUseDbDelivery) {
@@ -401,11 +677,40 @@ export default function CheckoutPage() {
     deliveryCharge = 0;
   }
 
-  const total = baseSubtotal + maintenanceFeeTotal + deliveryCharge;
+  const total = Math.max(0, subtotal - discountAmount + deliveryCharge);
 
   const isDeliveryChargeSelected = () => {
     if (shouldUseDbDelivery) return true;
-    return deliveryOption !== null;
+    return (
+      deliveryOption === "inside_dhaka" || deliveryOption === "outside_dhaka"
+    );
+  };
+
+  const validateForm = () => {
+    if (!checkoutItems.length)
+      return "Your order is empty. Add items before checking out.";
+    if (!formData.fullName.trim()) return "Please enter your full name.";
+    if (!formData.email.trim()) return "Please enter your email address.";
+    if (!formData.phone.trim()) return "Please enter your phone number.";
+    if (!formData.streetAddress.trim()) return "Please enter your street address.";
+    if (!formData.city.trim()) return "Please enter your city.";
+    if (!formData.zipCode.trim()) return "Please enter your ZIP/postal code.";
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email))
+      return "Please enter a valid email address.";
+
+    const cleanedPhone = formData.phone.replace(/\D/g, "");
+    if (!/^\d{10,}$/.test(cleanedPhone))
+      return "Please enter a valid phone number (at least 10 digits).";
+
+    if (!isDeliveryChargeSelected()) {
+      return shouldUseDbDelivery
+        ? "Please wait while we load delivery information..."
+        : "Please select your delivery location (inside Dhaka or outside Dhaka).";
+    }
+
+    return null;
   };
 
   const isFormValid = () => {
@@ -421,31 +726,6 @@ export default function CheckoutPage() {
     );
   };
 
-  const validateForm = () => {
-    if (!checkoutItems.length) return "Your order is empty. Add items before checking out.";
-    if (!formData.fullName.trim()) return "Please enter your full name.";
-    if (!formData.email.trim()) return "Please enter your email address.";
-    if (!formData.phone.trim()) return "Please enter your phone number.";
-    if (!formData.streetAddress.trim()) return "Please enter your street address.";
-    if (!formData.city.trim()) return "Please enter your city.";
-    if (!formData.zipCode.trim()) return "Please enter your ZIP/postal code.";
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) return "Please enter a valid email address.";
-
-    const cleanedPhone = formData.phone.replace(/\D/g, "");
-    if (!/^\d{10,}$/.test(cleanedPhone))
-      return "Please enter a valid phone number (at least 10 digits).";
-
-    if (!isDeliveryChargeSelected()) {
-      return shouldUseDbDelivery
-        ? "Please wait while we load delivery information..."
-        : "Please select your delivery location (inside Dhaka or outside Dhaka).";
-    }
-
-    return null;
-  };
-
   // Initialize
   useEffect(() => {
     cleanupOldOrderSources();
@@ -456,7 +736,7 @@ export default function CheckoutPage() {
     });
   }, []);
 
-  // ✅ Submit Order (redirect to /thank-you)
+  // Submit Order
   const handleSubmitOrder = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -470,11 +750,9 @@ export default function CheckoutPage() {
     }
 
     setIsOrdering(true);
-    console.log("[Checkout] Starting order submission...");
 
     try {
       const orderSource: "buy_now" | "cart" = isBuyNowFlow ? "buy_now" : "cart";
-
       const newOrderSourceToken = generateOrderSourceToken(orderSource);
       setOrderSourceToken(newOrderSourceToken);
 
@@ -535,21 +813,37 @@ export default function CheckoutPage() {
         shippingCost: deliveryCharge,
         deliveryCharge,
         subtotal,
+        discountAmount,
         total,
         deliveryOption,
         hasDbDelivery: shouldUseDbDelivery,
         dbDeliveryDetails,
         smallestDbCharge,
-        deliverySource: shouldUseDbDelivery ? "database_smallest" : "manual_selection",
+        deliverySource: shouldUseDbDelivery
+          ? isBuyNowFlow
+            ? "database_buy_now"
+            : "database_smallest"
+          : "manual_selection",
 
         orderSource,
         orderSourceToken: newOrderSourceToken,
         isBuyNowFlow,
         source: orderSource,
         contextItemsCount: contextItemsToClear.length,
+
+        coupon: effectiveAppliedCoupon
+          ? {
+              id: effectiveAppliedCoupon.id,
+              code: effectiveAppliedCoupon.code,
+              name: effectiveAppliedCoupon.name,
+              discountPercentage: effectiveAppliedCoupon.discountPercentage,
+              discountedPrice: effectiveAppliedCoupon.discountedPrice,
+              appliedAt: effectiveAppliedCoupon.appliedAt,
+              discountAmount: effectiveAppliedCoupon.discountAmount ?? discountAmount,
+            }
+          : undefined,
       };
 
-      console.log("[Checkout] Sending order to API...");
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -584,6 +878,14 @@ export default function CheckoutPage() {
         }`
       );
 
+      if (effectiveAppliedCoupon) {
+        clearCoupon();
+        setCouponCode("");
+        setCouponMessage(null);
+        setCouponError(null);
+        void loadAvailableCoupons({ allowWhenApplied: true });
+      }
+
       // Update stored data with orderId
       try {
         const sessionData = sessionStorage.getItem("order_source_data");
@@ -607,7 +909,6 @@ export default function CheckoutPage() {
       // Verify token exists before redirect, re-store if needed
       const verification = getOrderSourceFromToken(newOrderSourceToken);
       if (verification.source === "unknown") {
-        console.warn("[Checkout] Token not found, re-storing...");
         storeOrderSourceData(
           newOrderSourceToken,
           orderSource,
@@ -617,7 +918,6 @@ export default function CheckoutPage() {
         );
       }
 
-      // ✅ Redirect to /thank-you
       setIsRedirecting(true);
       setTimeout(() => {
         const params = new URLSearchParams({
@@ -637,7 +937,6 @@ export default function CheckoutPage() {
           : "Something went wrong while placing your order. Please try again.";
 
       setSubmissionError(msg);
-      console.error("[Checkout] Order error:", error);
 
       clearCurrentOrderSource();
       setOrderSourceToken(null);
@@ -647,94 +946,101 @@ export default function CheckoutPage() {
     }
   };
 
+  const hasItems = checkoutItems.length > 0;
+
   return (
-    <div className="bg-white min-h-screen">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Breadcrumb navigation */}
-        <div className="flex items-center text-sm text-gray-500 mb-8">
-          <Link href="/cart" className="hover:text-amber-600 transition-colors">
-            Cart
+    <div className="min-h-screen bg-white">
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        {/* Breadcrumb */}
+        <div className="mb-6 flex items-center text-sm text-gray-500">
+          <Link href="/cart" className="hover:text-gray-900">
+            Home
           </Link>
-          <ChevronRight className="w-4 h-4 mx-2" />
-          <span className="font-medium text-gray-900">Shipping</span>
-          <ChevronRight className="w-4 h-4 mx-2" />
-          <span className="text-gray-400">Review</span>
+          <ChevronRight className="mx-2 h-4 w-4" />
+          <span className="text-gray-900 font-medium">Checkout</span>
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">
-          Shipping Information
+        <h1 className="text-xl font-bold text-gray-900 tracking-wide mb-3">
+          CHECKOUT
         </h1>
+        <p className="text-sm text-gray-500 mb-8">
+          Please fill in the fields below and place order to complete your purchase!
+        </p>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left column - Form */}
-          <div className="lg:col-span-2">
-            <form onSubmit={handleSubmitOrder}>
-              <div className="space-y-6">
-                {/* Full Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="fullName"
-                    value={formData.fullName}
-                    onChange={handleInputChange}
-                    placeholder="Enter your full name"
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500"
-                  />
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8">
+          {/* LEFT */}
+          <div className="space-y-6">
+            {/* SHIPPING ADDRESS */}
+            <section className="border border-gray-200 bg-white shadow-sm">
+              <div className="flex items-center gap-3 bg-[#3f3f3f] px-4 py-2 text-white">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/60 text-xs font-bold">
+                  1
+                </span>
+                <h2 className="text-sm font-bold tracking-wide">SHIPPING ADDRESS</h2>
+              </div>
 
+              <form onSubmit={handleSubmitOrder} className="p-4">
                 {/* Email */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Address *
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-gray-800">
+                    Email Address <span className="text-red-600">*</span>
                   </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail className="h-5 w-5 text-gray-400" />
-                    </div>
+                  <div className="mt-1 relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      placeholder="your@email.com"
+                      placeholder="you@email.com"
+                      className="w-full h-10 pl-9 pr-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
                       required
-                      className="w-full pl-10 px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500"
                     />
                   </div>
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number *
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Phone className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      placeholder="01XXXXXXXXX"
-                      required
-                      className="w-full pl-10 px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    We'll contact you for delivery coordination
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    You can create an account after checkout
                   </p>
                 </div>
 
-                {/* Street Address */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Street Address *
+                {/* Name row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-800">
+                      Full Name <span className="text-red-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleInputChange}
+                      placeholder="Your name"
+                      className="mt-1 w-full h-10 px-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-800">
+                      Phone Number <span className="text-red-600">*</span>
+                    </label>
+                    <div className="mt-1 relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        placeholder="01XXXXXXXXX"
+                        className="w-full h-10 pl-9 pr-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Street */}
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-gray-800">
+                    Street Address <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="text"
@@ -742,15 +1048,16 @@ export default function CheckoutPage() {
                     value={formData.streetAddress}
                     onChange={handleInputChange}
                     placeholder="House, Road, Area"
+                    className="mt-1 w-full h-10 px-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500"
                   />
                 </div>
 
                 {/* Apartment */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Apartment, suite, etc. (optional)
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-gray-800">
+                    Apartment, suite, etc.{" "}
+                    <span className="text-gray-400">(optional)</span>
                   </label>
                   <input
                     type="text"
@@ -758,15 +1065,15 @@ export default function CheckoutPage() {
                     value={formData.apartment}
                     onChange={handleInputChange}
                     placeholder="Apartment, suite, floor"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500"
+                    className="mt-1 w-full h-10 px-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
                   />
                 </div>
 
                 {/* City + ZIP */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      City *
+                    <label className="block text-xs font-semibold text-gray-800">
+                      City <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -774,13 +1081,13 @@ export default function CheckoutPage() {
                       value={formData.city}
                       onChange={handleInputChange}
                       placeholder="City"
+                      className="mt-1 w-full h-10 px-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
                       required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      ZIP/Postal Code *
+                    <label className="block text-xs font-semibold text-gray-800">
+                      ZIP/Postal Code <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
@@ -788,26 +1095,24 @@ export default function CheckoutPage() {
                       value={formData.zipCode}
                       onChange={handleInputChange}
                       placeholder="ZIP/Postal Code"
+                      className="mt-1 w-full h-10 px-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
                       required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500"
                     />
                   </div>
                 </div>
 
-                {/* Delivery Time */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                {/* Delivery time */}
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-gray-800">
                     Delivery Time Preference
                   </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Clock className="h-5 w-5 text-gray-400" />
-                    </div>
+                  <div className="mt-1 relative">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <select
                       name="deliveryTime"
                       value={formData.deliveryTime}
                       onChange={handleInputChange}
-                      className="w-full pl-10 px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 appearance-none"
+                      className="w-full h-10 pl-9 pr-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400 appearance-none bg-white"
                     >
                       <option value="anytime">Anytime (9 AM - 9 PM)</option>
                       <option value="morning">Morning (9 AM - 12 PM)</option>
@@ -818,9 +1123,10 @@ export default function CheckoutPage() {
                 </div>
 
                 {/* Notes */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Order Notes / Special Instructions (optional)
+                <div className="mb-6">
+                  <label className="block text-xs font-semibold text-gray-800">
+                    Order Notes / Special Instructions{" "}
+                    <span className="text-gray-400">(optional)</span>
                   </label>
                   <textarea
                     name="notes"
@@ -828,41 +1134,40 @@ export default function CheckoutPage() {
                     onChange={handleInputChange}
                     placeholder="Any special instructions for delivery, gate code, etc."
                     rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500"
+                    className="mt-1 w-full px-3 py-2 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
                   />
                 </div>
 
-                {/* Payment */}
-                <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    Payment Method
-                  </h3>
-                  <div className="space-y-3">
-                    <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:border-amber-400 transition-colors">
+                {/* PAYMENT METHOD */}
+                <div className="border border-gray-200 bg-white shadow-sm">
+                  <div className="flex items-center gap-3 bg-[#3f3f3f] px-4 py-2 text-white">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/60 text-xs font-bold">
+                      3
+                    </span>
+                    <h3 className="text-sm font-bold tracking-wide">PAYMENT METHOD</h3>
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    <label className="flex items-start gap-3 text-sm">
                       <input
                         type="radio"
                         name="paymentMethod"
                         value="cash_on_delivery"
                         checked={formData.paymentMethod === "cash_on_delivery"}
                         onChange={handleInputChange}
-                        className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300"
+                        className="mt-1 h-4 w-4"
                       />
-                      <div className="ml-3 flex-1">
-                        <span className="block text-sm font-medium text-gray-900">
-                          Cash on Delivery
-                        </span>
-                        <span className="block text-sm text-gray-500">
-                          Pay when you receive your order
-                        </span>
-                      </div>
-                      <div className="ml-3">
-                        <span className="text-sm font-semibold text-gray-900">
-                          Available
-                        </span>
+                      <div>
+                        <div className="font-semibold text-gray-900">
+                          Cash On Delivery
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Pay any time while receiving the product.
+                        </div>
                       </div>
                     </label>
 
-                    <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:border-amber-400 transition-colors opacity-50">
+                    <label className="flex items-start gap-3 text-sm opacity-60">
                       <input
                         type="radio"
                         name="paymentMethod"
@@ -870,39 +1175,186 @@ export default function CheckoutPage() {
                         checked={formData.paymentMethod === "online_payment"}
                         onChange={handleInputChange}
                         disabled
-                        className="h-4 w-4 text-gray-300 focus:ring-gray-500 border-gray-300"
+                        className="mt-1 h-4 w-4"
                       />
-                      <div className="ml-3 flex-1">
-                        <span className="block text-sm font-medium text-gray-900">
+                      <div>
+                        <div className="font-semibold text-gray-900">
                           Online Payment
-                        </span>
-                        <span className="block text-sm text-gray-500">
-                          Pay securely with bKash, Nagad, or Card
-                        </span>
-                      </div>
-                      <div className="ml-3">
-                        <span className="text-sm font-semibold text-gray-400">
-                          Coming Soon
-                        </span>
+                        </div>
+                        <div className="text-xs text-gray-500">Coming soon</div>
                       </div>
                     </label>
+
+                    {/* ✅ Delivery options row (UPDATED) */}
+                    <div className="pt-3 border-t border-gray-200">
+                      {shouldUseDbDelivery ? (
+                        <div className="text-xs text-gray-700">
+                          <span className="font-semibold">Shipping:</span>{" "}
+                          {smallestDbCharge === 0
+                            ? "Free Delivery"
+                            : formatPriceBDT(smallestDbCharge ?? 0)}
+                          <span className="text-gray-500"></span>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setDeliveryOption("inside_dhaka")}
+                              className={`h-10 px-3 border rounded-[3px] text-sm text-left ${
+                                deliveryOption === "inside_dhaka"
+                                  ? "border-gray-700"
+                                  : "border-gray-200 hover:border-gray-400"
+                              }`}
+                            >
+                              Inside Dhaka — {formatPriceBDT(70)}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeliveryOption("outside_dhaka")}
+                              className={`h-10 px-3 border rounded-[3px] text-sm text-left ${
+                                deliveryOption === "outside_dhaka"
+                                  ? "border-gray-700"
+                                  : "border-gray-200 hover:border-gray-400"
+                              }`}
+                            >
+                              Outside Dhaka — {formatPriceBDT(130)}
+                            </button>
+                          </div>
+
+                          {!(
+                            deliveryOption === "inside_dhaka" ||
+                            deliveryOption === "outside_dhaka"
+                          ) && (
+                            <div className="text-xs text-red-600 flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4" />
+                              Please select delivery option
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      className="mt-3 text-xs text-gray-700 underline underline-offset-2 hover:text-gray-900"
+                    >
+                      Add instructions for Delivery
+                    </button>
                   </div>
                 </div>
 
-                {/* Submit */}
-                <div className="mt-8">
+                {isAuthenticated &&
+                  (appliedCoupon ||
+                    isLoadingCouponsList ||
+                    availableCouponsError ||
+                    availableCoupons.length > 0) && (
+                  <div className="border border-gray-200 bg-white shadow-sm">
+                    <div className="flex items-center gap-3 bg-[#3f3f3f] px-4 py-2 text-white">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/60 text-xs font-bold">
+                        2
+                      </span>
+                      <h3 className="text-sm font-bold tracking-wide">COUPON</h3>
+                    </div>
+
+                    <div className="p-4">
+                      {appliedCoupon ? (
+                        <div className="flex items-start justify-between gap-3 rounded-[3px] border border-gray-200 bg-gray-50 p-3">
+                          <div className="flex items-start gap-2">
+                            <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">
+                                Coupon Applied:{" "}
+                                <span className="font-bold">{appliedCoupon.code}</span>
+                              </div>
+                              {appliedCoupon.name && (
+                                <div className="text-xs text-gray-600">
+                                  {appliedCoupon.name}
+                                </div>
+                              )}
+                              <div className="text-xs text-gray-600">
+                                Benefit: {formatCouponBenefit(appliedCoupon)}
+                              </div>
+                              {discountAmount > 0 && (
+                                <div className="text-xs text-gray-600">
+                                  You saved {formatPriceBDT(discountAmount)}.
+                                </div>
+                              )}
+                              <div className="text-[11px] text-gray-500">
+                                Used at {formatAppliedAt(appliedCoupon.appliedAt)}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRemoveCoupon}
+                            className="inline-flex items-center gap-2 text-xs font-semibold text-gray-700 hover:text-red-600"
+                          >
+                            <X className="w-4 h-4" />
+                            Remove
+                          </button>
+                        </div>
+                      ) : isLoadingCouponsList ? (
+                        <div className="space-y-3">
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <Skeleton className="h-10 w-full rounded-[3px]" />
+                            <Skeleton className="h-10 w-32 rounded-[3px]" />
+                          </div>
+                          <Skeleton className="h-3 w-40" />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="relative flex-1">
+                              <Ticket className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                              <input
+                                type="text"
+                                value={couponCode}
+                                onChange={(e) => setCouponCode(e.target.value)}
+                                placeholder="Coupon code"
+                                className="w-full h-10 pl-9 pr-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleApplyCoupon}
+                              disabled={isApplyingCoupon}
+                              className="h-10 px-5 bg-black text-white text-sm font-bold rounded-[3px] hover:bg-[#222] transition-colors disabled:cursor-not-allowed disabled:bg-gray-300"
+                            >
+                              {isApplyingCoupon ? "Applying..." : "Apply coupon"}
+                            </button>
+                          </div>
+
+                          {couponError && (
+                            <p className="mt-2 text-xs text-red-600 flex items-center gap-2">
+                              <AlertCircle className="w-4 h-4" />
+                              {couponError}
+                            </p>
+                          )}
+                          {couponMessage && (
+                            <p className="mt-2 text-xs text-green-700 flex items-center gap-2">
+                              <CheckCircle2 className="w-4 h-4" />
+                              {couponMessage}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Submit area */}
+                <div className="pt-2">
                   {submissionError ? (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                      <p className="text-sm text-red-600">{submissionError}</p>
+                    <div className="mb-4 p-3 border border-red-200 bg-red-50 rounded-[3px]">
+                      <p className="text-sm text-red-700">{submissionError}</p>
                     </div>
                   ) : null}
 
                   {submissionMessage ? (
-                    <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm text-green-600">
-                        {submissionMessage}
-                      </p>
-                      <p className="mt-2 text-xs text-green-500">
+                    <div className="mb-4 p-3 border border-green-200 bg-green-50 rounded-[3px]">
+                      <p className="text-sm text-green-700">{submissionMessage}</p>
+                      <p className="mt-1 text-[11px] text-green-600">
                         Redirecting to thank you page...
                       </p>
                     </div>
@@ -911,77 +1363,66 @@ export default function CheckoutPage() {
                   <button
                     type="submit"
                     disabled={!isFormValid() || isOrdering || isRedirecting}
-                    className={`w-full py-3 px-4 ${
+                    className={`w-full h-11 rounded-[3px] text-white font-bold tracking-wide ${
                       isFormValid()
-                        ? "bg-amber-500 hover:bg-amber-600 cursor-pointer"
+                        ? "bg-black hover:bg-[#222]"
                         : "bg-gray-300 cursor-not-allowed"
-                    } text-white font-medium rounded-md shadow transition-colors`}
+                    } transition-colors`}
                   >
                     {isOrdering || isRedirecting ? (
-                      <span className="flex items-center justify-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
+                      <span className="flex items-center justify-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                         Processing Order...
                       </span>
                     ) : (
-                      `Place Order - ${formatPriceBDT(total)}`
+                      "PLACE ORDER"
                     )}
                   </button>
 
                   {!isFormValid() && (
-                    <p className="mt-2 text-xs text-gray-500">
-                      Please fill in all required fields and select delivery option.
+                    <p className="mt-2 text-[11px] text-gray-500">
+                      Please fill all required fields and select delivery option.
                     </p>
                   )}
 
-                  <p className="mt-2 text-xs text-gray-500">
-                    By placing your order, you agree to our Terms of Service and Privacy Policy.
+                  <p className="mt-2 text-[11px] text-gray-500">
+                    By placing your order, you agree to our Terms and Conditions.
                   </p>
                 </div>
-              </div>
-            </form>
+              </form>
+            </section>
           </div>
 
-          {/* Right column - Order Summary */}
-          <div>
-            <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 sticky top-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
-                Order Summary
-              </h2>
+          {/* RIGHT: ORDER REVIEW */}
+          <aside className="border border-gray-200 bg-white shadow-sm h-fit">
+            <div className="flex items-center gap-3 bg-[#3f3f3f] px-4 py-2 text-white">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/60 text-xs font-bold">
+                4
+              </span>
+              <h2 className="text-sm font-bold tracking-wide">ORDER REVIEW</h2>
+            </div>
+
+            <div className="p-4">
+              {/* Table Head */}
+              <div className="flex justify-between text-xs font-bold text-gray-700 pb-2 border-b border-gray-200">
+                <span>PRODUCT</span>
+                <span>SUBTOTAL</span>
+              </div>
 
               {/* Items */}
-              <div className="space-y-4 mb-6">
+              <div className="divide-y divide-gray-200">
                 {checkoutItems.map((item) => {
-                  const itemDeliveryDetail = deliveryDetailsByProductId.get(
-                    item.product.id
-                  );
-                  const isCombo = (item.product as any)?.isCombo;
-
+                  const isCombo = Boolean((item.product as any)?.isCombo);
                   const itemMaintenanceUnits = countMaintenanceUnitsForItem(item);
                   const itemMaintenanceFee = getItemMaintenanceFee(item);
                   const itemTotalPrice = getItemTotalPrice(item);
+                  const itemDeliveryDetail = deliveryDetailsByProductId.get(
+                    item.product.id
+                  );
 
                   return (
-                    <div key={item.product.id} className="flex gap-4">
-                      <div className="w-16 h-16 rounded-md bg-gray-200 overflow-hidden relative shrink-0">
+                    <div key={item.product.id} className="py-4 flex gap-3">
+                      <div className="relative h-14 w-14 shrink-0 overflow-hidden border border-gray-200 bg-gray-50">
                         <Image
                           src={item.product.image}
                           alt={item.product.name}
@@ -995,53 +1436,30 @@ export default function CheckoutPage() {
                         )}
                       </div>
 
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-800 leading-tight">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-semibold text-gray-900 leading-snug">
                           {item.product.name}
                           {isCombo && (
                             <span className="ml-2 text-xs text-amber-600 font-semibold">
                               (Combo Offer)
                             </span>
                           )}
-                        </h3>
-
-                        <p className="text-sm text-gray-500">
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
                           Quantity: {item.quantity}
-                        </p>
-
-                        <div className="text-xs text-gray-600 mt-1 space-y-0.5">
-                          <div className="flex justify-between">
-                            <span>Unit Price:</span>
-                            <span>{formatPriceBDT(item.product.price)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Subtotal:</span>
-                            <span>
-                              {formatPriceBDT(item.product.price * item.quantity)}
-                            </span>
-                          </div>
-
-                          {itemMaintenanceUnits > 0 && (
-                            <div className="flex justify-between text-amber-600">
-                              <span className="font-medium">
-                                + Maintenance Fee ({itemMaintenanceUnits} × {formatPriceBDT(1)}):
-                              </span>
-                              <span className="font-medium">
-                                {formatPriceBDT(itemMaintenanceFee)}
-                              </span>
-                            </div>
-                          )}
-
-                          <div className="flex justify-between pt-0.5 border-t border-gray-200 mt-1">
-                            <span className="font-medium">Item Total:</span>
-                            <span className="font-medium">
-                              {formatPriceBDT(itemTotalPrice)}
-                            </span>
-                          </div>
                         </div>
 
-                        {itemDeliveryDetail ? (
-                          <p className="text-xs text-gray-400 mt-1">
+                        {itemMaintenanceUnits > 0 && (
+                          <div className="text-[11px] text-gray-500 mt-1">
+                            Maintenance: {itemMaintenanceUnits} × {formatPriceBDT(1)} ={" "}
+                            <span className="font-semibold">
+                              {formatPriceBDT(itemMaintenanceFee)}
+                            </span>
+                          </div>
+                        )}
+
+                        {itemDeliveryDetail && (
+                          <div className="text-[11px] text-gray-500 mt-1">
                             Delivery:{" "}
                             {itemDeliveryDetail.charge === 0
                               ? "Free"
@@ -1049,185 +1467,108 @@ export default function CheckoutPage() {
                             {itemDeliveryDetail.dataSource === "db" && (
                               <span className="text-amber-600"> (DB)</span>
                             )}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-gray-400 mt-1">
-                            Delivery: Not specified
-                          </p>
+                          </div>
                         )}
                       </div>
 
                       <div className="text-right">
-                        <p className="font-medium text-gray-900">
+                        <div className="text-sm font-semibold text-gray-900">
                           {formatPriceBDT(itemTotalPrice)}
-                        </p>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
 
-              {/* Breakdown */}
-              <div className="border-t border-gray-200 pt-4 space-y-4">
+              {/* Summary */}
+              <div className="mt-4 border-t border-gray-200 pt-3 space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Products Subtotal</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {formatPriceBDT(baseSubtotal)}
+                  <span className="text-gray-700">SUBTOTAL</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatPriceBDT(subtotal)}
                   </span>
                 </div>
 
-                {maintenanceFeeTotal > 0 && (
-                  <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium text-amber-800">
-                        Maintenance Fee
-                      </span>
-                      <span className="text-sm font-medium text-amber-800">
-                        {formatPriceBDT(maintenanceFeeTotal)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-amber-700">
-                      Extra ৳1 per qualifying item (prices like 49/99/etc or items with delivery included).
-                    </p>
+                <div className="flex justify-between">
+                  <span className="text-gray-700">SHIPPING</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatPriceBDT(deliveryCharge)}
+                    {shouldUseDbDelivery &&
+                      smallestDbCharge !== null &&
+                      smallestDbCharge > 0 && (
+                        <span className="text-xs text-amber-600 ml-1">(DB)</span>
+                      )}
+                  </span>
+                </div>
+
+                {discountAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">
+                      DISCOUNT
+                      {effectiveAppliedCoupon?.code
+                        ? ` (${effectiveAppliedCoupon.code})`
+                        : ""}
+                    </span>
+                    <span className="font-semibold text-emerald-600">
+                      -{formatPriceBDT(discountAmount)}
+                    </span>
                   </div>
                 )}
 
-                {/* Delivery */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-gray-900">
-                    Delivery Charge
-                  </h3>
-
-                  {shouldUseDbDelivery ? (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                      <p className="font-semibold">
-                        {smallestDbCharge === 0
-                          ? "✓ Free Delivery"
-                          : "✓ Delivery Charge Applied"}
-                      </p>
-                      <p className="mt-1">
-                        {smallestDbCharge === 0
-                          ? "All items have free delivery."
-                          : `Using smallest delivery charge: ${formatPriceBDT(
-                              smallestDbCharge
-                            )}`}
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <label
-                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                          deliveryOption === "inside_dhaka"
-                            ? "border-amber-500 bg-amber-50"
-                            : "border-gray-200 hover:border-amber-400"
-                        }`}
-                      >
-                        <div className="flex items-center">
-                          <input
-                            type="radio"
-                            name="deliveryOption"
-                            className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
-                            checked={deliveryOption === "inside_dhaka"}
-                            onChange={(e) =>
-                              e.target.checked && setDeliveryOption("inside_dhaka")
-                            }
-                          />
-                          <div className="ml-3">
-                            <p className="text-sm font-medium text-gray-900">
-                              Inside Dhaka
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Standard delivery inside Dhaka city
-                            </p>
-                          </div>
-                        </div>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {formatPriceBDT(70)}
-                        </span>
-                      </label>
-
-                      <label
-                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                          deliveryOption === "outside_dhaka"
-                            ? "border-amber-500 bg-amber-50"
-                            : "border-gray-200 hover:border-amber-400"
-                        }`}
-                      >
-                        <div className="flex items-center">
-                          <input
-                            type="radio"
-                            name="deliveryOption"
-                            className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
-                            checked={deliveryOption === "outside_dhaka"}
-                            onChange={(e) =>
-                              e.target.checked && setDeliveryOption("outside_dhaka")
-                            }
-                          />
-                          <div className="ml-3">
-                            <p className="text-sm font-medium text-gray-900">
-                              Outside Dhaka
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Delivery anywhere outside Dhaka
-                            </p>
-                          </div>
-                        </div>
-                        <span className="text-sm font-semibold text-gray-900">
-                          {formatPriceBDT(130)}
-                        </span>
-                      </label>
-
-                      {!deliveryOption && (
-                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                          <p className="text-xs text-yellow-700 text-center">
-                            Please select a delivery option
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  )}
+                <div className="flex justify-between">
+                  <span className="text-gray-700">VAT</span>
+                  <span className="font-semibold text-gray-900">{formatPriceBDT(0)}</span>
                 </div>
 
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Delivery Charge</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {formatPriceBDT(deliveryCharge)}
+                <div className="flex justify-between pt-2 border-t border-gray-200">
+                  <span className="text-gray-900 font-bold">TOTAL</span>
+                  <span className="font-bold text-[#e05a3a]">
+                    {formatPriceBDT(total)}
                   </span>
                 </div>
-
-                <div className="border-t border-gray-200 pt-3">
-                  <div className="flex justify-between">
-                    <span className="text-lg font-bold text-gray-900">Total</span>
-                    <span className="text-lg font-bold text-gray-900">
-                      {formatPriceBDT(total)}
-                    </span>
-                  </div>
-                </div>
               </div>
 
-              {/* Info */}
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="space-y-3">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Clock className="w-4 h-4 mr-2" />
-                    <span>Estimated delivery: 2-3 business days</span>
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Package className="w-4 h-4 mr-2" />
-                    <span>
-                      {checkoutItems.length} item{checkoutItems.length !== 1 ? "s" : ""} in your order
-                    </span>
-                  </div>
-                  {formData.paymentMethod === "cash_on_delivery" && (
-                    <div className="text-sm text-gray-600">
-                      <p>You'll pay {formatPriceBDT(total)} upon delivery</p>
-                    </div>
-                  )}
+              {/* Notes */}
+              <div className="mt-4 text-[11px] text-gray-700 leading-relaxed">
+                <div className="font-bold underline underline-offset-2 mb-1">
+                  Important note:
                 </div>
+                <ol className="list-decimal pl-4 space-y-1">
+                  <li>
+                    Your order may be split into multiple shipments based on warehouse
+                    location.
+                  </li>
+                  <li>
+                    By clicking Place Order, you agree to our Terms and Conditions.
+                  </li>
+                  <li>For COD orders, pay only after receiving the product.</li>
+                </ol>
+              </div>
+
+              {/* Secondary info */}
+              <div className="mt-4 pt-4 border-t border-gray-200 space-y-2 text-xs text-gray-600">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  <span>Estimated delivery: 2-3 business days</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  <span>
+                    {checkoutItems.length} item{checkoutItems.length !== 1 ? "s" : ""}{" "}
+                    in your order
+                  </span>
+                </div>
+                {formData.paymentMethod === "cash_on_delivery" && (
+                  <div className="text-xs text-gray-600">
+                    You'll pay{" "}
+                    <span className="font-semibold">{formatPriceBDT(total)}</span> upon
+                    delivery.
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-          {/* end right */}
+          </aside>
         </div>
       </div>
     </div>

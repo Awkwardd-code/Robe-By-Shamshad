@@ -124,7 +124,10 @@ export async function POST(request: NextRequest) {
     const maintenanceFee = asNumber(payload.maintenanceFee ?? 0);
     const shippingCost = asNumber(payload.shippingCost ?? payload.deliveryCharge ?? 0);
     const deliveryCharge = asNumber(payload.deliveryCharge ?? shippingCost);
-    const total = asNumber(payload.total ?? productsSubtotal + maintenanceFee + shippingCost);
+    const discountAmount = asNumber(payload.discountAmount ?? 0);
+    const total = asNumber(
+      payload.total ?? productsSubtotal + maintenanceFee + shippingCost - discountAmount
+    );
 
     const normalizedItems = rawItems.map((item: IncomingOrderItem, index: number) => {
       const productId = asString(item.productId);
@@ -178,7 +181,9 @@ export async function POST(request: NextRequest) {
       shippingCost,
       deliveryCharge,
       subtotal: asNumber(payload.subtotal ?? productsSubtotal + maintenanceFee),
+      discountAmount,
       total,
+      coupon: payload.coupon ?? null,
       deliveryOption: asString(payload.deliveryOption) || null,
       hasDbDelivery: Boolean(payload.hasDbDelivery),
       dbDeliveryDetails: Array.isArray(payload.dbDeliveryDetails)

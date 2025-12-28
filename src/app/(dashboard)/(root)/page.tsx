@@ -1,61 +1,48 @@
-import React from 'react'
-import EidSlider from './_components/HomeSlider'
-import CategorySlider, { type CategoryItem } from './_components/CategorySlider'
-import MostPopularSlider from './_components/MostPopularSlider'
-import BestSellerSlider from './_components/BestSellerSlider'
-import ProductGrid from './_components/ProductGrid'
-import FeaturesGrid from './_components/FeaturesGrid'
+import React from "react";
+import EidSlider from "./_components/HomeSlider";
+import CategorySlider from "./_components/CategorySlider";
+import MostPopularSlider from "./_components/MostPopularSlider";
+import BestSellerSlider from "./_components/BestSellerSlider";
+import ProductGrid from "./_components/ProductGrid";
+import FeaturesGrid from "./_components/FeaturesGrid";
+import EidNewsletterPage from "./_components/EidNewsletterPage";
 
-const DEFAULT_CATEGORIES: CategoryItem[] = [
-  {
-    id: "wearables",
-    name: "Wearables",
-    slug: "wearables",
-    image:
-      "https://images.unsplash.com/photo-1445233247825-8c9a5f3aa13d?w=600&h=600&fit=crop",
-    productCount: 132,
-    description: "Smartwatches, fitness trackers, and health wearables.",
+const newsletterData = {
+  hero: {
+    offerLine: "WINTER SPECIAL : UP TO 25% OFF!",
+    brandLine: "ROBE BY SHAMSHAD",
+    scopeLine: "MODEST FESTIVE EDITS",
+    ctaText: "SHOP OFFERS",
+    ctaHref: "/sales",
   },
-  {
-    id: "home-office",
-    name: "Home & Office",
-    slug: "home-office",
-    image:
-      "https://images.unsplash.com/photo-1489515217757-5fd1be406fef?w=600&h=600&fit=crop",
-    productCount: 89,
-    description: "Ergonomic gear built for productivity.",
+  intro: {
+    heading: "Celebrate Winter with seasonal favorites",
+    body: "Explore festive edits, premium fabrics, and limited-time savings curated for you.",
   },
-  {
-    id: "gaming",
-    name: "Gaming",
-    slug: "gaming",
-    image:
-      "https://images.unsplash.com/photo-1511512578047-c895f94a7f24?w=600&h=600&fit=crop",
-    productCount: 74,
-    description: "Consoles, accessories, and high-performance rig upgrades.",
+  secondaryBanner: {
+    textLeft: "Limited Winter Edit",
+    textRight: "Small batch drops, once they are gone they are gone.",
+    ctaText: "Shop Eid",
+    ctaHref: "/products",
   },
-  {
-    id: "audio",
-    name: "Audio",
-    slug: "audio",
-    image:
-      "https://images.unsplash.com/photo-1518544881830-9c4668f6d8b2?w=600&h=600&fit=crop",
-    productCount: 58,
-    description: "Headphones, earbuds, and premium speakers.",
+  footer: {
+    disclaimer: "Limited time offer",
+    unsubscribeHref: "/",
   },
-];
+};
 
 const page = () => {
   return (
     <div>
       <EidSlider />
-      <CategorySlider categories={DEFAULT_CATEGORIES} />
+      <CategorySlider title="Shop by Category" />
       <MostPopularSlider />
-      <ProductGrid />
-      <BestSellerSlider />
+      {/* <ProductGrid /> */}
+      {/* <BestSellerSlider /> */}
+      <EidNewsletterPage data={newsletterData} />
       <FeaturesGrid />
     </div>
-  )
-}
+  );
+};
 
-export default page
+export default page;

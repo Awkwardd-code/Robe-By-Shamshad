@@ -29,7 +29,9 @@ interface UserRecord {
   name: string;
   email: string;
   phone?: string;
+  bio?: string;
   avatar?: string;
+  avatarPublicId?: string;
   role: "customer" | "staff";
   isActive: boolean;
   isAdmin?: number;
@@ -51,13 +53,73 @@ interface UserRecord {
   lastLogin?: string;
 }
 
-async function createSession(db: Db, userId: ObjectId) {
+interface SessionUserSnapshot {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  bio: string;
+  avatar: string;
+  avatarPublicId: string;
+  role: string;
+  isActive: boolean;
+  isAdmin: number;
+  emailVerified: boolean;
+  addresses: Array<{
+    street?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    isDefault?: boolean;
+  }>;
+  password: string;
+  totalOrders: number;
+  totalSpent: number;
+  lastOrderDate: string;
+  createdAt: string;
+  updatedAt: string;
+  lastLogin: string;
+}
+
+function buildSessionUserSnapshot(user: UserRecord): SessionUserSnapshot {
+  const userId = user._id ? user._id.toString() : "";
+
+  return {
+    _id: userId,
+    name: user.name ?? "",
+    email: user.email ?? "",
+    phone: user.phone ?? "",
+    bio: user.bio ?? "",
+    avatar: user.avatar ?? "",
+    avatarPublicId: user.avatarPublicId ?? "",
+    role: user.role ?? "",
+    isActive: user.isActive ?? false,
+    isAdmin: user.isAdmin ?? 0,
+    emailVerified: user.emailVerified ?? false,
+    addresses: user.addresses ?? [],
+    password: user.password ?? "",
+    totalOrders: user.totalOrders ?? 0,
+    totalSpent: user.totalSpent ?? 0,
+    lastOrderDate: user.lastOrderDate ?? "",
+    createdAt: user.createdAt ?? "",
+    updatedAt: user.updatedAt ?? "",
+    lastLogin: user.lastLogin ?? ""
+  };
+}
+
+async function createSession(db: Db, user: UserRecord) {
+  if (!user._id) {
+    throw new Error("User ID is required to create a session");
+  }
+
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
 
   await db.collection("sessions").insertOne({
     token,
-    userId,
+    userId: user._id,
+    user: buildSessionUserSnapshot(user),
     createdAt: new Date(),
     expiresAt
   });
@@ -175,6 +237,8 @@ export async function GET(req: NextRequest) {
     const timestamp = new Date().toISOString();
     const avatarUrl = profile.picture ?? "";
 
+    let sessionUser: UserRecord;
+
     if (!user) {
       const newUser: UserRecord = {
         name: profile.name || "Google User",
@@ -199,6 +263,7 @@ export async function GET(req: NextRequest) {
         ...newUser,
         _id: insertResult.insertedId
       };
+      sessionUser = user;
     } else {
       await db.collection("users").updateOne(
         { _id: user._id },
@@ -211,17 +276,24 @@ export async function GET(req: NextRequest) {
           }
         }
       );
+      sessionUser = {
+        ...user,
+        avatar: avatarUrl || user.avatar || "",
+        updatedAt: timestamp,
+        lastLogin: timestamp,
+        emailVerified: user.emailVerified || Boolean(profile.email_verified)
+      };
     }
 
-    const session = await createSession(db, user._id as ObjectId);
+    const session = await createSession(db, sessionUser);
     const response = NextResponse.redirect(origin);
 
     const authToken = await createAuthToken({
-      id: (user._id as ObjectId).toString(),
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      isAdmin: user.isAdmin ?? 0,
+      id: (sessionUser._id as ObjectId).toString(),
+      email: sessionUser.email,
+      name: sessionUser.name,
+      role: sessionUser.role,
+      isAdmin: sessionUser.isAdmin ?? 0,
       sessionToken: session.token
     });
 

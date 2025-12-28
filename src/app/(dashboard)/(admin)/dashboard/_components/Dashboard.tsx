@@ -1689,7 +1689,7 @@ const Products: React.FC = () => {
                                             </Listbox>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 gap-4">
                                             <div className="relative">
                                                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                                                     Category *
@@ -1725,43 +1725,6 @@ const Products: React.FC = () => {
                                                                     }
                                                                 >
                                                                     {category.name}
-                                                                </Listbox.Option>
-                                                            ))
-                                                        )}
-                                                    </Listbox.Options>
-                                                </Listbox>
-                                            </div>
-
-                                            <div className="relative">
-                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                    Subcategory
-                                                </label>
-                                                <Listbox
-                                                    value={newProduct.subcategory}
-                                                    onChange={(value: string) => setNewProduct({ ...newProduct, subcategory: value })}
-                                                    disabled={!newProduct.category}
-                                                >
-                                                    <Listbox.Button className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-                                                        {newProduct.subcategory || 'Select subcategory'}
-                                                    </Listbox.Button>
-                                                    <Listbox.Options className="absolute w-full mt-1 max-h-60 overflow-auto rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                                                        {availableSubcategories.length === 0 ? (
-                                                            <div className="py-2 px-4 text-sm text-gray-500 dark:text-gray-400">
-                                                                {newProduct.category ? 'No subcategories available' : 'Select category first'}
-                                                            </div>
-                                                        ) : (
-                                                            availableSubcategories.map((subcat) => (
-                                                                <Listbox.Option
-                                                                    key={subcat}
-                                                                    value={subcat}
-                                                                    className={({ active }) =>
-                                                                        `cursor-pointer select-none py-2 px-4 text-sm rounded transition-colors ${active
-                                                                            ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200'
-                                                                            : 'text-gray-900 dark:text-white'
-                                                                        }`
-                                                                    }
-                                                                >
-                                                                    {subcat}
                                                                 </Listbox.Option>
                                                             ))
                                                         )}
@@ -2007,32 +1970,6 @@ const Products: React.FC = () => {
                                                 placeholder="Auto-generated from product name"
                                             />
                                         </div>
-
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                Barcode
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={newProduct.barcode}
-                                                onChange={(e) => setNewProduct({ ...newProduct, barcode: e.target.value })}
-                                                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300 shadow-sm cursor-text"
-                                                placeholder="Enter barcode"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                Description
-                                            </label>
-                                            <textarea
-                                                value={newProduct.description}
-                                                onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                                                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300 shadow-sm cursor-text"
-                                                placeholder="Describe the product features, style, and appeal"
-                                                rows={4}
-                                            />
-                                        </div>
                                         {/* Delivery Section */}
                                         <div className="bg-linear-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 rounded-xl p-6">
                                             <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
@@ -2079,207 +2016,6 @@ const Products: React.FC = () => {
                                                 {newProduct.delivery.message}
                                             </p>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                Summary
-                                            </label>
-                                            <textarea
-                                                value={newProduct.summary}
-                                                onChange={(e) => setNewProduct({ ...newProduct, summary: e.target.value })}
-                                                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300 shadow-sm cursor-text"
-                                                placeholder="Brief summary for product cards"
-                                                rows={3}
-                                            />
-                                        </div>
-
-                                        {/* Pricing Section */}
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                    Current Price
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={newProduct.pricing.current.value}
-                                                    onChange={(e) => setNewProduct({
-                                                        ...newProduct,
-                                                        pricing: {
-                                                            ...newProduct.pricing,
-                                                            current: {
-                                                                ...newProduct.pricing.current,
-                                                                value: parseFloat(e.target.value) || 0
-                                                            }
-                                                        }
-                                                    })}
-                                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300 shadow-sm cursor-text"
-                                                    placeholder="0.00"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                    Original Price
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={newProduct.pricing.original.value}
-                                                    onChange={(e) => setNewProduct({
-                                                        ...newProduct,
-                                                        pricing: {
-                                                            ...newProduct.pricing,
-                                                            original: {
-                                                                ...newProduct.pricing.original,
-                                                                value: parseFloat(e.target.value) || 0
-                                                            }
-                                                        }
-                                                    })}
-                                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300 shadow-sm cursor-text"
-                                                    placeholder="0.00"
-                                                />
-                                            </div>
-                                            <div className="relative">
-                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                    Currency
-                                                </label>
-                                                <Listbox
-                                                    value={newProduct.pricing.current.currency}
-                                                    onChange={(value: string) => setNewProduct({
-                                                        ...newProduct,
-                                                        pricing: {
-                                                            ...newProduct.pricing,
-                                                            current: { ...newProduct.pricing.current, currency: value },
-                                                            original: { ...newProduct.pricing.original, currency: value }
-                                                        }
-                                                    })}
-                                                >
-                                                    <Listbox.Button className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-all duration-300 cursor-pointer">
-                                                        {newProduct.pricing.current.currency}
-                                                    </Listbox.Button>
-                                                    <Listbox.Options className="absolute w-full mt-1 max-h-60 overflow-auto rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                                                        {currencyOptions.map((currency) => (
-                                                            <Listbox.Option
-                                                                key={currency}
-                                                                value={currency}
-                                                                className={({ active }) =>
-                                                                    `cursor-pointer select-none py-2 px-4 text-sm rounded transition-colors ${active
-                                                                        ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200'
-                                                                        : 'text-gray-900 dark:text-white'
-                                                                    }`
-                                                                }
-                                                            >
-                                                                {currency}
-                                                            </Listbox.Option>
-                                                        ))}
-                                                    </Listbox.Options>
-                                                </Listbox>
-                                            </div>
-                                        </div>
-
-                                        {/* Price Unit Section */}
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                Price Unit *
-                                            </label>
-                                            <div className="space-y-3">
-                                                <input
-                                                    type="text"
-                                                    value={newProduct.pricing.current.unit}
-                                                    onChange={(e) => setNewProduct({
-                                                        ...newProduct,
-                                                        pricing: {
-                                                            ...newProduct.pricing,
-                                                            current: {
-                                                                ...newProduct.pricing.current,
-                                                                unit: e.target.value
-                                                            },
-                                                            original: {
-                                                                ...newProduct.pricing.original,
-                                                                unit: e.target.value
-                                                            }
-                                                        }
-                                                    })}
-                                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300 shadow-sm cursor-text"
-                                                    placeholder="e.g., 1 piece, 1 set, 1 pair"
-                                                    required
-                                                />
-
-                                                <div className="space-y-2">
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                                        Quick suggestions:
-                                                    </p>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {priceUnitSuggestions.map((unit) => (
-                                                            <button
-                                                                key={unit}
-                                                                type="button"
-                                                                onClick={() => setNewProduct({
-                                                                    ...newProduct,
-                                                                    pricing: {
-                                                                        ...newProduct.pricing,
-                                                                        current: {
-                                                                            ...newProduct.pricing.current,
-                                                                            unit: unit
-                                                                        },
-                                                                        original: {
-                                                                            ...newProduct.pricing.original,
-                                                                            unit: unit
-                                                                        }
-                                                                    }
-                                                                })}
-                                                                className={`px-3 py-1.5 text-xs rounded-full border transition-all duration-200 cursor-pointer ${newProduct.pricing.current.unit === unit
-                                                                    ? 'bg-purple-600 text-white border-purple-600'
-                                                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700'
-                                                                    }`}
-                                                            >
-                                                                {unit}
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Inventory Section */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                    Quantity
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    value={newProduct.inventory.quantity}
-                                                    onChange={(e) => setNewProduct({
-                                                        ...newProduct,
-                                                        inventory: {
-                                                            ...newProduct.inventory,
-                                                            quantity: parseInt(e.target.value) || 0
-                                                        }
-                                                    })}
-                                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300 shadow-sm cursor-text"
-                                                    placeholder="0"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                    Threshold
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    value={newProduct.inventory.threshold}
-                                                    onChange={(e) => setNewProduct({
-                                                        ...newProduct,
-                                                        inventory: {
-                                                            ...newProduct.inventory,
-                                                            threshold: parseInt(e.target.value) || 5
-                                                        }
-                                                    })}
-                                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300 shadow-sm cursor-text"
-                                                    placeholder="5"
-                                                />
-                                            </div>
-                                        </div>
-
                                         <div className="relative">
                                             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                                                 Status
@@ -2760,46 +2496,9 @@ const Products: React.FC = () => {
                                                                     </Listbox.Option>
                                                                 ))
                                                             )}
-                                                        </Listbox.Options>
-                                                    </Listbox>
-                                                </div>
-
-                                                <div className="relative">
-                                                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                                                        Subcategory
-                                                    </label>
-                                                    <Listbox
-                                                        value={selectedProduct.subcategory}
-                                                        onChange={(value: string) => setSelectedProduct({ ...selectedProduct, subcategory: value })}
-                                                        disabled={!selectedProduct.category}
-                                                    >
-                                                        <Listbox.Button className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white text-left shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-all duration-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-                                                            {selectedProduct.subcategory || 'Select subcategory'}
-                                                        </Listbox.Button>
-                                                        <Listbox.Options className="absolute w-full mt-1 max-h-60 overflow-auto rounded-lg bg-white dark:bg-gray-800 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                                                            {availableSubcategories.length === 0 ? (
-                                                                <div className="py-2 px-4 text-sm text-gray-500 dark:text-gray-400">
-                                                                    {selectedProduct.category ? 'No subcategories available' : 'Select category first'}
-                                                                </div>
-                                                            ) : (
-                                                                availableSubcategories.map((subcat) => (
-                                                                    <Listbox.Option
-                                                                        key={subcat}
-                                                                        value={subcat}
-                                                                        className={({ active }) =>
-                                                                            `cursor-pointer select-none py-2 px-4 text-sm rounded transition-colors ${active
-                                                                                ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-900 dark:text-purple-200'
-                                                                                : 'text-gray-900 dark:text-white'
-                                                                            }`
-                                                                        }
-                                                                    >
-                                                                        {subcat}
-                                                                    </Listbox.Option>
-                                                                ))
-                                                            )}
-                                                        </Listbox.Options>
-                                                    </Listbox>
-                                                </div>
+                                                    </Listbox.Options>
+                                                </Listbox>
+                                            </div>
 
                                                 <div className="relative">
                                                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">

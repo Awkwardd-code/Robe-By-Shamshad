@@ -18,6 +18,9 @@ import {
   Users,
   Zap,
   X,
+  ChevronLeft,
+  Search,
+  RefreshCcw,
 } from "lucide-react";
 import { useCommerce } from "@/context/CommerceContext";
 import type { Product as CommerceProduct } from "@/context/CommerceContext";
@@ -87,6 +90,11 @@ type ApiResponse = {
   pageLimit: number;
 };
 
+type CategoryOption = {
+  slug: string;
+  name: string;
+};
+
 const robe = {
   cream: "#FBF3E8",
   maroon: "#944C35",
@@ -123,18 +131,10 @@ const COMBO_TYPES = [
   "Premium Collection",
 ];
 
-const PRODUCT_CATEGORIES = [
-  "Shirts",
-  "Panjabis",
-  "Sarees",
-  "Blouses",
-  "Dresses",
-  "Kurtas",
-  "Pants",
-  "Blazers",
-  "Accessories",
-  "Unstitched",
-];
+const formatCategoryLabel = (slug: string) =>
+  slug
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 
 function formatTk(n: number) {
   return `Tk. ${n.toLocaleString("en-US")}`;
@@ -143,6 +143,7 @@ function formatTk(n: number) {
 const mapComboToCommerceProduct = (offer: ComboOffer): CommerceProduct => {
   const slug = offer.slug || offer._id;
   return {
+    ...offer,
     id: `combo-${offer._id}`,
     name: offer.name,
     slug: `/product-data/${encodeURIComponent(slug)}`,
@@ -152,6 +153,9 @@ const mapComboToCommerceProduct = (offer: ComboOffer): CommerceProduct => {
     category: "combo",
     description: offer.description,
     shortDescription: offer.tags?.[0],
+    isCombo: true,
+    delivery: offer.delivery,
+    deliveryCharge: offer.delivery?.charge,
   };
 };
 
@@ -176,14 +180,77 @@ function getComboBadge(tags: string[]) {
   return "Special";
 }
 
+/* -------------------- Design helpers (matches product listing style) -------------------- */
+function TogglePill({
+  active,
+  onClick,
+  children,
+  title,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`h-9 px-3 border text-xs font-bold uppercase tracking-widest transition ${
+        active
+          ? "border-gray-900 text-gray-900 bg-gray-50"
+          : "border-gray-200 text-gray-600 hover:border-gray-400"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Chip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-gray-700 hover:border-gray-400"
+      title="Remove filter"
+    >
+      <span className="truncate max-w-45">{label}</span>
+      <span className="text-gray-400">×</span>
+    </button>
+  );
+}
+
 function ComboCardSkeleton() {
   return (
-    <div className="animate-pulse bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="relative h-64 bg-gray-200" />
-      <div className="p-5 space-y-4">
-        <div className="h-4 w-3/4 rounded bg-gray-200" />
-        <div className="h-4 w-1/2 rounded bg-gray-200" />
-        <div className="h-8 w-full rounded bg-gray-200" />
+    <div className="animate-pulse bg-white border border-gray-200 shadow-[0_1px_0_rgba(0,0,0,0.03)] overflow-hidden">
+      <div className="relative h-56 bg-gray-100 flex items-center justify-center">
+        <div className="h-32 w-32 bg-gray-200/70 rounded" />
+      </div>
+      <div className="px-4 py-5 text-center space-y-3">
+        <div className="h-3 w-20 bg-gray-200 rounded mx-auto" />
+        <div className="h-4 w-4/5 bg-gray-200 rounded mx-auto" />
+        <div className="h-4 w-3/5 bg-gray-200 rounded mx-auto" />
+        <div className="h-10 w-full bg-gray-200 rounded" />
+      </div>
+    </div>
+  );
+}
+
+function ComboListItemSkeleton() {
+  return (
+    <div className="animate-pulse bg-white border border-gray-200 shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+      <div className="flex flex-col md:flex-row gap-4 p-5">
+        <div className="md:w-64 h-56 bg-gray-100 flex items-center justify-center">
+          <div className="h-28 w-28 bg-gray-200/70 rounded" />
+        </div>
+        <div className="flex-1 space-y-3">
+          <div className="h-3 w-28 bg-gray-200 rounded" />
+          <div className="h-4 w-3/4 bg-gray-200 rounded" />
+          <div className="h-4 w-1/2 bg-gray-200 rounded" />
+          <div className="h-10 w-56 bg-gray-200 rounded" />
+        </div>
       </div>
     </div>
   );
@@ -191,30 +258,20 @@ function ComboCardSkeleton() {
 
 function FilterSidebarSkeleton() {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6 space-y-6 animate-pulse">
-      <div className="h-5 w-1/2 rounded bg-gray-200" />
-      <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={`filter-skel-${index}`} className="space-y-2">
-            <div className="h-4 w-1/3 rounded bg-gray-200" />
-            <div className="flex flex-wrap gap-2">
-              <span className="h-8 w-10 rounded bg-gray-200" />
-              <span className="h-8 w-10 rounded bg-gray-200" />
-              <span className="h-8 w-10 rounded bg-gray-200" />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="space-y-2">
-        {Array.from({ length: 2 }).map((_, index) => (
-          <div key={`range-skel-${index}`} className="h-4 rounded bg-gray-200" />
-        ))}
-      </div>
-      <div className="h-10 w-full rounded bg-gray-200" />
+    <div className="bg-white border border-gray-200 p-5 space-y-6 animate-pulse">
+      <div className="h-4 w-1/2 rounded bg-gray-200" />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="space-y-2">
+          <div className="h-3 w-24 rounded bg-gray-200" />
+          <div className="h-3 w-40 rounded bg-gray-200/80" />
+          <div className="h-3 w-36 rounded bg-gray-200/70" />
+        </div>
+      ))}
     </div>
   );
 }
 
+/* -------------------- Page -------------------- */
 export default function ComboOffersListingPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [priceIds, setPriceIds] = useState<string[]>([]);
@@ -224,13 +281,7 @@ export default function ComboOffersListingPage() {
   const [sort, setSort] = useState<SortOption>("featured");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showFilters, setShowFilters] = useState(false);
-  const {
-    wishlistItems,
-    addToWishlist,
-    removeFromWishlist,
-    addToCart,
-    isInCart,
-  } = useCommerce();
+  const { wishlistItems, addToWishlist, removeFromWishlist, addToCart, isInCart } = useCommerce();
   const wishlistIds = useMemo(() => new Set(wishlistItems.map((item) => item.id)), [wishlistItems]);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -243,6 +294,8 @@ export default function ComboOffersListingPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   // Detect mobile (no window usage in render)
   useEffect(() => {
@@ -264,16 +317,16 @@ export default function ComboOffersListingPage() {
     }
   }, [showFilters, isMobile]);
 
-  // Debounce search
+  // Debounce search (enabled)
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
+      setDebouncedSearch(searchQuery.trim());
       setCurrentPage(1);
-    }, 500);
+    }, 350);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch combo offers
+  // Fetch combo offers (keep as-is)
   const fetchOffers = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -316,6 +369,54 @@ export default function ComboOffersListingPage() {
     fetchOffers();
   }, [fetchOffers]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadCategories = async () => {
+      try {
+        setIsLoadingCategories(true);
+        const response = await fetch("/api/categories?limit=100", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`Failed to fetch categories (${response.status})`);
+        const payload = await response.json();
+        const items = Array.isArray(payload?.categories) ? payload.categories : [];
+        const mapped = items
+          .map((item: { slug?: string; name?: string }) => {
+            const slug = typeof item?.slug === "string" ? item.slug.trim() : "";
+            const name = typeof item?.name === "string" ? item.name.trim() : "";
+            if (!slug && !name) return null;
+            return {
+              slug: slug || name.toLowerCase().replace(/\s+/g, "-"),
+              name: name || formatCategoryLabel(slug),
+            };
+          })
+          .filter(Boolean) as CategoryOption[];
+
+        const unique = Array.from(new Map(mapped.map((entry) => [entry.slug, entry])).values()).sort(
+          (a, b) => a.name.localeCompare(b.name)
+        );
+
+        if (!cancelled) setCategoryOptions(unique);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Error fetching categories:", err);
+          setCategoryOptions([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingCategories(false);
+      }
+    };
+
+    void loadCategories();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
+
   // Extract unique tags from offers
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -328,7 +429,27 @@ export default function ComboOffersListingPage() {
     return Array.from(tagSet).sort();
   }, [offers]);
 
-  // Client-side filtering + sorting
+  const availableCategories = useMemo(() => {
+    if (categoryOptions.length > 0) return categoryOptions;
+
+    const slugSet = new Set<string>();
+    offers.forEach((offer) => {
+      offer.products?.forEach((product) => {
+        if (product.product?.category) slugSet.add(product.product.category);
+      });
+    });
+
+    return Array.from(slugSet)
+      .map((slug) => ({ slug, name: formatCategoryLabel(slug) }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [categoryOptions, offers]);
+
+  const categoryNameBySlug = useMemo(
+    () => new Map(availableCategories.map((category) => [category.slug, category.name])),
+    [availableCategories]
+  );
+
+  // Client-side filtering + sorting (keep as-is)
   const filtered = useMemo(() => {
     let list = [...offers];
 
@@ -416,8 +537,7 @@ export default function ComboOffersListingPage() {
     addToWishlist(commerceProduct);
   };
 
-  const isComboInCart = (offer: ComboOffer) =>
-    isInCart(mapComboToCommerceProduct(offer).id);
+  const isComboInCart = (offer: ComboOffer) => isInCart(mapComboToCommerceProduct(offer).id);
 
   const handleAddToCart = (offer: ComboOffer) => {
     if (!offer.isActive || (offer.remainingStock ?? 0) <= 0) return;
@@ -426,9 +546,17 @@ export default function ComboOffersListingPage() {
     addToCart(commerceProduct);
   };
 
-  const isOfferWishlisted = (offer: ComboOffer) => wishlistIds.has(mapComboToCommerceProduct(offer).id);
+  const isOfferWishlisted = (offer: ComboOffer) =>
+    wishlistIds.has(mapComboToCommerceProduct(offer).id);
 
-  const activeFiltersCount = [categories.length, priceIds.length, discountIds.length, comboTypes.length, tags.length]
+  const activeFiltersCount = [
+    categories.length,
+    priceIds.length,
+    discountIds.length,
+    comboTypes.length,
+    tags.length,
+    Boolean(debouncedSearch),
+  ]
     .filter(Boolean)
     .length;
 
@@ -439,244 +567,208 @@ export default function ComboOffersListingPage() {
     }
   };
 
-  const renderPagination = () => {
+  // refined pagination (same logic as improved listing)
+  const pagination = useMemo(() => {
     const pages: Array<number | "..."> = [];
-    const maxVisible = 5;
+    if (totalPages <= 1) return pages;
 
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      pages.push(1);
-      if (currentPage > 3) pages.push("...");
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-      for (let i = start; i <= end; i++) pages.push(i);
-      if (currentPage < totalPages - 2) pages.push("...");
-      pages.push(totalPages);
-    }
+    const siblings = 1;
+    const boundary = 1;
+
+    const startPages = Array.from({ length: Math.min(boundary, totalPages) }, (_, i) => i + 1);
+    const endPages = Array.from(
+      { length: Math.min(boundary, totalPages) },
+      (_, i) => totalPages - Math.min(boundary, totalPages) + 1 + i
+    );
+
+    const leftSibling = Math.max(currentPage - siblings, boundary + 2);
+    const rightSibling = Math.min(currentPage + siblings, totalPages - boundary - 1);
+
+    pages.push(...startPages);
+
+    if (leftSibling > boundary + 2) pages.push("...");
+    else if (boundary + 1 < totalPages - boundary) pages.push(boundary + 1);
+
+    for (let p = leftSibling; p <= rightSibling; p++) pages.push(p);
+
+    if (rightSibling < totalPages - boundary - 1) pages.push("...");
+    else if (totalPages - boundary > boundary) pages.push(totalPages - boundary);
+
+    endPages.forEach((p) => {
+      if (!pages.includes(p)) pages.push(p);
+    });
+
     return pages;
-  };
+  }, [currentPage, totalPages]);
 
-  // 🔥 UPDATED: No internal scroll. Desktop shows full sidebar. Mobile uses drawer + backdrop.
+  // --- UPDATED UI: checkbox -> button toggles (keeps filter state logic) ---
+  const toggleArrayValue = <T,>(list: T[], val: T) =>
+    list.includes(val) ? list.filter((x) => x !== val) : [...list, val];
+
+  // Sidebar (design aligned with product listing)
   const FilterSidebar = (
-    <div className="bg-white rounded-xl p-6 border" style={{ borderColor: robe.blush }}>
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="text-lg font-serif font-semibold" style={{ color: robe.maroon }}>
-          Filters
-        </h2>
+    <div className="bg-white border border-gray-200 p-5">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-900">Filters</h2>
 
-        {/* Mobile close button */}
         {isMobile ? (
           <button
             onClick={() => setShowFilters(false)}
-            className="w-9 h-9 rounded-lg border flex items-center justify-center hover:opacity-80 transition-opacity"
-            style={{ borderColor: robe.blush, color: robe.text, backgroundColor: robe.cream }}
+            type="button"
+            className="w-9 h-9 border border-gray-200 bg-white inline-flex items-center justify-center hover:bg-gray-50"
             aria-label="Close filters"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 text-gray-700" />
           </button>
         ) : (
           <button
             onClick={clearAll}
-            className="text-sm font-medium hover:opacity-80 transition-opacity"
-            style={{ color: robe.sand }}
+            type="button"
+            className="text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-900"
           >
-            Clear all
+            Clear
           </button>
         )}
       </div>
 
-      {/* Desktop clear all under title if you prefer */}
-      {!isMobile && (
-        <div className="-mt-6 mb-6">
-          <button
-            onClick={clearAll}
-            className="text-sm font-medium hover:opacity-80 transition-opacity"
-            style={{ color: robe.sand }}
-          >
-            Clear all
-          </button>
-        </div>
-      )}
-
-      {/* Search */}
-      <div className="mb-6">
+      {/* Search (enabled + refined) */}
+      <div className="mb-5">
         <div className="relative">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search combo offers..."
+            placeholder="Search combo offers"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 rounded-lg border text-sm focus:outline-none focus:ring-1 transition-all"
-            style={{
-              borderColor: robe.blush,
-              color: robe.text,
-              backgroundColor: robe.cream,
-            }}
+            className="w-full border border-gray-200 pl-9 pr-9 py-2.5 text-sm outline-none focus:border-gray-400"
           />
-          {searchQuery && (
+          {searchQuery.trim().length > 0 && (
             <button
+              type="button"
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
-              style={{ color: robe.sand }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
               aria-label="Clear search"
             >
-              ✕
+              ×
             </button>
+          )}
+        </div>
+        {debouncedSearch && (
+          <div className="mt-2 text-[11px] text-gray-500">
+            Searching for: <span className="font-semibold text-gray-800">{debouncedSearch}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Category (buttons) */}
+      <div className="border-t border-gray-100 pt-5 mb-5">
+        <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">
+          Categories
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {availableCategories.length > 0 ? (
+            availableCategories.map((category) => (
+              <TogglePill
+                key={category.slug}
+                active={categories.includes(category.slug)}
+                onClick={() => setCategories((prev) => toggleArrayValue(prev, category.slug))}
+                title={category.name}
+              >
+                {category.name}
+              </TogglePill>
+            ))
+          ) : isLoadingCategories ? (
+            Array.from({ length: 6 }).map((_, index) => (
+              <span
+                key={`category-skeleton-${index}`}
+                className="h-9 w-20 border border-gray-200 bg-gray-100 animate-pulse"
+              />
+            ))
+          ) : (
+            <span className="text-[11px] text-gray-500">No categories available</span>
           )}
         </div>
       </div>
 
-      {/* Category */}
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold mb-3" style={{ color: robe.maroon }}>
-          Product Categories
-        </h3>
-        <div className="space-y-2">
-          {PRODUCT_CATEGORIES.map((category) => (
-            <label key={category} className="flex items-center gap-3 cursor-pointer group">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={categories.includes(category)}
-                  onChange={(e) =>
-                    setCategories((prev) => (e.target.checked ? [...prev, category] : prev.filter((c) => c !== category)))
-                  }
-                  className="peer sr-only"
-                />
-                <div className="w-4 h-4 rounded border transition-all" style={{ borderColor: robe.blush }}>
-                  <Check
-                    className="w-3 h-3 opacity-0 transition-opacity peer-checked:opacity-100"
-                    style={{ color: robe.maroon }}
-                  />
-                </div>
-              </div>
-              <span className="text-sm group-hover:opacity-80 transition-opacity" style={{ color: robe.text }}>
-                {category}
-              </span>
-            </label>
-          ))}
+      {/* Combo Types (buttons) */}
+      <div className="border-t border-gray-100 pt-5 mb-5">
+        <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">
+          Combo type
         </div>
-      </div>
-
-      {/* Combo Types */}
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold mb-3" style={{ color: robe.maroon }}>
-          Combo Type
-        </h3>
-        <div className="space-y-2">
+        <div className="flex flex-wrap gap-2">
           {COMBO_TYPES.map((type) => (
-            <label key={type} className="flex items-center gap-3 cursor-pointer group">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={comboTypes.includes(type)}
-                  onChange={(e) =>
-                    setComboTypes((prev) => (e.target.checked ? [...prev, type] : prev.filter((t) => t !== type)))
-                  }
-                  className="peer sr-only"
-                />
-                <div className="w-4 h-4 rounded border transition-all" style={{ borderColor: robe.blush }}>
-                  <Check
-                    className="w-3 h-3 opacity-0 transition-opacity peer-checked:opacity-100"
-                    style={{ color: robe.maroon }}
-                  />
-                </div>
-              </div>
-              <span className="text-sm group-hover:opacity-80 transition-opacity" style={{ color: robe.text }}>
-                {type}
-              </span>
-            </label>
+            <TogglePill
+              key={type}
+              active={comboTypes.includes(type)}
+              onClick={() => setComboTypes((prev) => toggleArrayValue(prev, type))}
+              title={type}
+            >
+              {type}
+            </TogglePill>
           ))}
         </div>
       </div>
 
-      {/* Price Range */}
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold mb-3" style={{ color: robe.maroon }}>
-          Price Range
-        </h3>
-        <div className="space-y-2">
+      {/* Price (buttons) */}
+      <div className="border-t border-gray-100 pt-5 mb-5">
+        <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">Price</div>
+        <div className="flex flex-col gap-2">
           {PRICE_RANGES.map((range) => (
-            <label key={range.id} className="flex items-center gap-3 cursor-pointer group">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={priceIds.includes(range.id)}
-                  onChange={(e) =>
-                    setPriceIds((prev) => (e.target.checked ? [...prev, range.id] : prev.filter((id) => id !== range.id)))
-                  }
-                  className="peer sr-only"
-                />
-                <div className="w-4 h-4 rounded border transition-all" style={{ borderColor: robe.blush }}>
-                  <Check
-                    className="w-3 h-3 opacity-0 transition-opacity peer-checked:opacity-100"
-                    style={{ color: robe.maroon }}
-                  />
-                </div>
-              </div>
-              <span className="text-sm group-hover:opacity-80 transition-opacity" style={{ color: robe.text }}>
-                {range.label}
-              </span>
-            </label>
+            <button
+              key={range.id}
+              type="button"
+              onClick={() => setPriceIds((prev) => toggleArrayValue(prev, range.id))}
+              className={[
+                "h-9 px-3 border text-xs font-semibold tracking-wide text-left transition",
+                priceIds.includes(range.id)
+                  ? "border-gray-900 text-gray-900 bg-gray-50"
+                  : "border-gray-200 text-gray-600 hover:border-gray-400",
+              ].join(" ")}
+            >
+              {range.label}
+            </button>
           ))}
         </div>
       </div>
 
-      {/* Discount Range */}
-      <div className="mb-6">
-        <h3 className="text-sm font-semibold mb-3" style={{ color: robe.maroon }}>
+      {/* Discount (buttons) */}
+      <div className="border-t border-gray-100 pt-5 mb-5">
+        <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">
           Discount
-        </h3>
-        <div className="space-y-2">
+        </div>
+        <div className="flex flex-col gap-2">
           {DISCOUNT_RANGES.map((range) => (
-            <label key={range.id} className="flex items-center gap-3 cursor-pointer group">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={discountIds.includes(range.id)}
-                  onChange={(e) =>
-                    setDiscountIds((prev) =>
-                      e.target.checked ? [...prev, range.id] : prev.filter((id) => id !== range.id)
-                    )
-                  }
-                  className="peer sr-only"
-                />
-                <div className="w-4 h-4 rounded border transition-all" style={{ borderColor: robe.blush }}>
-                  <Check
-                    className="w-3 h-3 opacity-0 transition-opacity peer-checked:opacity-100"
-                    style={{ color: robe.maroon }}
-                  />
-                </div>
-              </div>
-              <span className="text-sm group-hover:opacity-80 transition-opacity" style={{ color: robe.text }}>
-                {range.label}
-              </span>
-            </label>
+            <button
+              key={range.id}
+              type="button"
+              onClick={() => setDiscountIds((prev) => toggleArrayValue(prev, range.id))}
+              className={[
+                "h-9 px-3 border text-xs font-semibold tracking-wide text-left transition",
+                discountIds.includes(range.id)
+                  ? "border-gray-900 text-gray-900 bg-gray-50"
+                  : "border-gray-200 text-gray-600 hover:border-gray-400",
+              ].join(" ")}
+            >
+              {range.label}
+            </button>
           ))}
         </div>
       </div>
 
-      {/* Tags */}
+      {/* Tags (chips -> pills) */}
       {allTags.length > 0 && (
-        <div className="mb-2">
-          <h3 className="text-sm font-semibold mb-3" style={{ color: robe.maroon }}>
-            Tags
-          </h3>
+        <div className="border-t border-gray-100 pt-5">
+          <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">Tags</div>
           <div className="flex flex-wrap gap-2">
-            {allTags.slice(0, 12).map((tag) => (
-              <button
-                key={tag}
-                onClick={() => setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))}
-                className="px-3 py-1 text-xs font-medium rounded-full border transition-all"
-                style={{
-                  backgroundColor: tags.includes(tag) ? robe.maroon : robe.cream,
-                  borderColor: tags.includes(tag) ? robe.maroon : robe.blush,
-                  color: tags.includes(tag) ? "white" : robe.text,
-                }}
+            {allTags.slice(0, 14).map((t) => (
+              <TogglePill
+                key={t}
+                active={tags.includes(t)}
+                onClick={() => setTags((prev) => toggleArrayValue(prev, t))}
+                title={t}
               >
-                {tag}
-              </button>
+                {t}
+              </TogglePill>
             ))}
           </div>
         </div>
@@ -685,53 +777,51 @@ export default function ComboOffersListingPage() {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: `linear-gradient(135deg, ${robe.cream}, #ffffff)` }}>
+    <div className="min-h-screen bg-white">
       <style jsx>{`
         button {
           cursor: pointer;
         }
       `}</style>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
-        <nav className="flex items-center text-sm mb-8" style={{ color: robe.text }}>
-          <Link href="/" className="hover:opacity-80 transition-opacity">
+        <nav className="flex items-center text-sm text-gray-500 mb-6">
+          <Link href="/" className="hover:text-gray-900 transition-colors">
             Home
           </Link>
-          <ChevronRight className="w-4 h-4 mx-2" style={{ color: robe.sand }} />
-          <Link href="/offers" className="hover:opacity-80 transition-opacity">
+          <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+          <Link href="/offers" className="hover:text-gray-900 transition-colors">
             Offers
           </Link>
-          <ChevronRight className="w-4 h-4 mx-2" style={{ color: robe.sand }} />
-          <span className="font-medium" style={{ color: robe.maroon }}>
-            Combo Offers
-          </span>
+          <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+          <span className="text-gray-900 font-semibold uppercase tracking-wide">Combo Offers</span>
         </nav>
 
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col lg:flex-row gap-10">
           {/* Mobile Filter Button */}
           <div className="lg:hidden">
             <button
               onClick={() => setShowFilters(true)}
-              className="flex items-center gap-2 px-4 py-3 bg-white rounded-xl w-full justify-between border transition-all hover:shadow-sm"
-              style={{ borderColor: robe.blush, color: robe.maroon }}
+              className="flex items-center justify-between w-full border border-gray-200 bg-white px-4 py-3"
+              type="button"
             >
               <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4" />
-                <span className="font-medium">Filters</span>
+                <Filter className="w-4 h-4 text-gray-700" />
+                <span className="text-sm font-semibold uppercase tracking-wide text-gray-900">
+                  Filters
+                </span>
                 {activeFiltersCount > 0 && (
-                  <span
-                    className="w-6 h-6 text-xs rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: robe.maroon, color: "white" }}
-                  >
+                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-gray-900 text-white">
                     {activeFiltersCount}
                   </span>
                 )}
               </div>
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 text-gray-700" />
             </button>
           </div>
 
-          {/* ✅ Backdrop (mobile) */}
+          {/* Backdrop for mobile */}
           <AnimatePresence>
             {showFilters && isMobile && (
               <motion.div
@@ -744,170 +834,192 @@ export default function ComboOffersListingPage() {
             )}
           </AnimatePresence>
 
-          {/* ✅ Sidebar: desktop = normal (no scroll). mobile = drawer. */}
+          {/* Sidebar */}
           <AnimatePresence>
             {(!isMobile || showFilters) && (
               <motion.aside
-                initial={isMobile ? { x: -24, opacity: 0 } : { x: -10, opacity: 0 }}
+                initial={isMobile ? { x: -14, opacity: 0 } : { x: -10, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                exit={isMobile ? { x: -24, opacity: 0 } : { x: -10, opacity: 0 }}
+                exit={isMobile ? { x: -14, opacity: 0 } : { x: -10, opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className={
                   isMobile
                     ? "fixed left-0 top-0 bottom-0 z-50 w-[92%] max-w-sm p-4"
-                    : "lg:w-72 shrink-0"
+                    : "lg:w-70 shrink-0"
                 }
               >
                 {isLoading ? (
                   <FilterSidebarSkeleton />
                 ) : isMobile ? (
-                  <div className="h-full overflow-y-auto rounded-xl">
-                    {/* mobile drawer can scroll the page is locked, so drawer scroll is OK */}
-                    {FilterSidebar}
-                  </div>
+                  <div className="h-full overflow-y-auto">{FilterSidebar}</div>
                 ) : (
-                  // Desktop: ✅ full sidebar, NO internal scroll
                   <div className="sticky top-8">{FilterSidebar}</div>
                 )}
               </motion.aside>
             )}
           </AnimatePresence>
 
-          {/* Main Content */}
+          {/* Main */}
           <div className="flex-1">
-            {/* Header */}
-            <div className="bg-white rounded-xl p-6 mb-6 border" style={{ borderColor: robe.blush }}>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            {/* Header / Controls */}
+            <div className="mb-5">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div
-                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.2em]"
-                      style={{ backgroundColor: robe.cream, color: robe.maroon }}
-                    >
-                      <Tag className="w-3 h-3" />
-                      <span>Combo Offers</span>
-                    </div>
-                    {activeFiltersCount > 0 && (
-                      <span
-                        className="text-xs font-medium px-2 py-1 rounded"
-                        style={{ backgroundColor: robe.sand, color: robe.text }}
-                      >
-                        {activeFiltersCount} active filter{activeFiltersCount > 1 ? "s" : ""}
-                      </span>
-                    )}
+                  <div className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-gray-700">
+                    <Tag className="w-4 h-4 text-gray-600" />
+                    Combo offers
                   </div>
-                  <h1 className="text-2xl md:text-3xl font-serif font-bold mb-2" style={{ color: robe.maroon }}>
-                    Exclusive Combo Deals
+
+                  <h1 className="mt-3 text-xl font-bold uppercase tracking-widest text-gray-900">
+                    Exclusive Bundles
                   </h1>
-                  <p className="text-sm" style={{ color: robe.text }}>
-                    {isLoading ? "Loading..." : `${totalCount} curated combos`} • Bundle and save on premium collections
-                  </p>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {isLoading ? (
+                      <span className="inline-block h-3 w-24 bg-gray-200 animate-pulse align-middle" />
+                    ) : (
+                      `${totalCount} combos`
+                    )}
+                    {!isLoading && activeFiltersCount > 0 ? ` ? ${activeFiltersCount} active` : ""}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  {/* View Mode Toggle */}
-                  <div className="flex items-center rounded-lg border" style={{ borderColor: robe.blush }}>
+                <div className="flex items-center gap-3">
+                  {/* View toggles */}
+                  <div className="flex items-center border border-gray-200">
                     <button
                       onClick={() => setViewMode("grid")}
-                      className={`p-2 rounded-l-lg transition-all ${viewMode === "grid" ? "text-white" : ""}`}
-                      style={{ backgroundColor: viewMode === "grid" ? robe.maroon : "transparent", color: robe.text }}
+                      type="button"
+                      className={`p-2 ${
+                        viewMode === "grid"
+                          ? "bg-gray-900 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                      aria-label="Grid view"
                     >
-                      <Grid className="w-5 h-5" />
+                      <Grid className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setViewMode("list")}
-                      className={`p-2 rounded-r-lg transition-all ${viewMode === "list" ? "text-white" : ""}`}
-                      style={{ backgroundColor: viewMode === "list" ? robe.maroon : "transparent", color: robe.text }}
+                      type="button"
+                      className={`p-2 border-l border-gray-200 ${
+                        viewMode === "list"
+                          ? "bg-gray-900 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                      aria-label="List view"
                     >
-                      <List className="w-5 h-5" />
+                      <List className="w-4 h-4" />
                     </button>
                   </div>
 
-                  {/* Sort */}
-                  <select
-                    value={sort}
-                    onChange={(e) => setSort(e.target.value as SortOption)}
-                    className="px-4 py-2 rounded-lg border text-sm font-medium outline-none transition-all"
-                    style={{
-                      borderColor: robe.blush,
-                      color: robe.text,
-                      backgroundColor: "white",
-                    }}
-                  >
-                    <option value="featured">Featured</option>
-                    <option value="newest">New Arrivals</option>
-                    <option value="discount_high">Highest Discount</option>
-                    <option value="price_low">Price: Low to High</option>
-                    <option value="price_high">Price: High to Low</option>
-                    <option value="popular">Most Popular</option>
-                  </select>
+                  {/* Sort (refined) */}
+                  <div className="relative">
+                    <select
+                      value={sort}
+                      onChange={(e) => setSort(e.target.value as SortOption)}
+                      className="appearance-none border border-gray-200 bg-white pl-3 pr-9 py-2 text-xs font-semibold uppercase tracking-wider text-gray-700 outline-none focus:border-gray-400"
+                    >
+                      <option value="featured">Featured</option>
+                      <option value="newest">New Arrivals</option>
+                      <option value="discount_high">Highest Discount</option>
+                      <option value="discount_low">Lowest Discount</option>
+                      <option value="price_low">Price: Low to High</option>
+                      <option value="price_high">Price: High to Low</option>
+                      <option value="popular">Most Popular</option>
+                    </select>
+                    <ChevronRight className="w-4 h-4 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                  </div>
                 </div>
               </div>
+
+              {/* Active chips */}
+              {activeFiltersCount > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {debouncedSearch && (
+                    <Chip label={`Search: ${debouncedSearch}`} onRemove={() => setSearchQuery("")} />
+                  )}
+                  {categories.map((c) => (
+                    <Chip
+                      key={c}
+                      label={`Category: ${categoryNameBySlug.get(c) ?? formatCategoryLabel(c)}`}
+                      onRemove={() => setCategories((p) => p.filter((x) => x !== c))}
+                    />
+                  ))}
+                  {comboTypes.map((t) => (
+                    <Chip key={t} label={`Type: ${t}`} onRemove={() => setComboTypes((p) => p.filter((x) => x !== t))} />
+                  ))}
+                  {priceIds.map((pid) => (
+                    <Chip
+                      key={pid}
+                      label={`Price: ${PRICE_RANGES.find((r) => r.id === pid)?.label || pid}`}
+                      onRemove={() => setPriceIds((p) => p.filter((x) => x !== pid))}
+                    />
+                  ))}
+                  {discountIds.map((did) => (
+                    <Chip
+                      key={did}
+                      label={`Discount: ${DISCOUNT_RANGES.find((r) => r.id === did)?.label || did}`}
+                      onRemove={() => setDiscountIds((p) => p.filter((x) => x !== did))}
+                    />
+                  ))}
+                  {tags.map((t) => (
+                    <Chip key={t} label={`Tag: ${t}`} onRemove={() => setTags((p) => p.filter((x) => x !== t))} />
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={clearAll}
+                    className="ml-auto border border-gray-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-gray-700 hover:border-gray-400"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Loading / Error / Empty / Data */}
+            {/* Content */}
             {isLoading ? (
               viewMode === "grid" ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {Array.from({ length: 6 }).map((_, i) => (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {Array.from({ length: 8 }).map((_, i) => (
                     <ComboCardSkeleton key={i} />
                   ))}
                 </div>
               ) : (
                 <div className="space-y-4">
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="animate-pulse bg-white rounded-xl p-6">
-                      <div className="flex flex-col md:flex-row gap-6">
-                        <div className="md:w-64 h-48 rounded-xl bg-gray-200" />
-                        <div className="flex-1 space-y-3">
-                          <div className="h-4 w-3/4 rounded bg-gray-200" />
-                          <div className="h-4 w-1/2 rounded bg-gray-200" />
-                          <div className="h-8 w-full rounded bg-gray-200" />
-                        </div>
-                      </div>
-                    </div>
+                    <ComboListItemSkeleton key={i} />
                   ))}
                 </div>
               )
             ) : error ? (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-                <p className="text-red-600 font-medium mb-2">Error loading combo offers</p>
-                <p className="text-red-500 text-sm mb-4">{error}</p>
+              <div className="border border-red-200 bg-red-50 p-6 text-center">
+                <p className="text-red-700 font-semibold text-sm mb-2">Error loading combo offers</p>
+                <p className="text-red-600 text-xs mb-4">{error}</p>
                 <button
                   onClick={() => fetchOffers()}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="px-4 py-2 bg-gray-900 text-white text-xs font-semibold uppercase tracking-wider"
+                  type="button"
                 >
-                  Try Again
+                  Retry
                 </button>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="mb-6">
-                  <div
-                    className="w-24 h-24 rounded-full mx-auto flex items-center justify-center mb-4"
-                    style={{ backgroundColor: robe.cream }}
-                  >
-                    <Package className="w-12 h-12" style={{ color: robe.sand }} />
-                  </div>
-                  <h3 className="text-xl font-serif font-semibold mb-2" style={{ color: robe.maroon }}>
-                    No combo offers found
-                  </h3>
-                  <p className="text-sm mb-6" style={{ color: robe.text }}>
-                    Try adjusting your filters or check back later for new offers
-                  </p>
-                  <button
-                    onClick={clearAll}
-                    className="px-6 py-3 rounded-lg text-sm font-semibold uppercase tracking-[0.15em] transition-all hover:shadow-lg"
-                    style={{ backgroundColor: robe.maroon, color: "white" }}
-                  >
-                    Clear All Filters
-                  </button>
-                </div>
+              <div className="border border-gray-200 bg-white p-10 text-center">
+                <div className="text-gray-400 text-sm mb-2">No combo offers found</div>
+                <p className="text-gray-600 text-xs mb-5">Try adjusting filters</p>
+                <button
+                  onClick={clearAll}
+                  className="px-5 py-2 bg-gray-900 text-white text-xs font-semibold uppercase tracking-wider"
+                  type="button"
+                >
+                  Clear Filters
+                </button>
               </div>
             ) : (
               <>
                 {viewMode === "grid" ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {filtered.map((offer) => (
                       <ComboCard
                         key={offer._id}
@@ -920,61 +1032,74 @@ export default function ComboOffersListingPage() {
                     ))}
                   </div>
                 ) : (
-                    <div className="space-y-4">
-                      {filtered.map((offer) => (
-                        <ComboListItem
-                          key={offer._id}
-                          offer={offer}
-                          isWishlisted={isOfferWishlisted(offer)}
-                          isInCart={isComboInCart(offer)}
-                          onToggleWishlist={() => handleToggleWishlist(offer)}
-                          onAddToCart={() => handleAddToCart(offer)}
-                        />
-                      ))}
-                    </div>
+                  <div className="space-y-4">
+                    {filtered.map((offer) => (
+                      <ComboListItem
+                        key={offer._id}
+                        offer={offer}
+                        isWishlisted={isOfferWishlisted(offer)}
+                        isInCart={isComboInCart(offer)}
+                        onToggleWishlist={() => handleToggleWishlist(offer)}
+                        onAddToCart={() => handleAddToCart(offer)}
+                      />
+                    ))}
+                  </div>
                 )}
 
-                {/* Pagination */}
+                {/* Refined Pagination */}
                 {totalPages > 1 && (
-                  <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="text-sm" style={{ color: robe.text }}>
-                      Showing {(currentPage - 1) * 12 + 1}-{Math.min(currentPage * 12, totalCount)} of {totalCount} combos
+                  <div className="mt-10 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="text-xs text-gray-500">
+                      Showing {(currentPage - 1) * 12 + 1}-{Math.min(currentPage * 12, totalCount)} of{" "}
+                      {totalCount} combos
                     </div>
+
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className="px-4 py-2 rounded-lg border text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ borderColor: robe.blush, color: robe.text }}
+                        className="h-10 px-3 border border-gray-200 text-xs font-semibold uppercase tracking-widest text-gray-700 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                        type="button"
+                        aria-label="Previous page"
                       >
-                        ← Previous
+                        <ChevronLeft className="w-4 h-4" /> Prev
                       </button>
 
-                      {renderPagination().map((page, i) => (
-                        <button
-                          key={i}
-                          onClick={() => typeof page === "number" && handlePageChange(page)}
-                          disabled={page === "..."}
-                          className={`w-10 h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-all ${
-                            page === "..." ? "pointer-events-none" : ""
-                          }`}
-                          style={{
-                            backgroundColor: page === currentPage ? robe.maroon : "transparent",
-                            borderColor: page === currentPage ? robe.maroon : robe.blush,
-                            color: page === currentPage ? "white" : robe.text,
-                          }}
-                        >
-                          {page}
-                        </button>
-                      ))}
+                      <div className="flex items-center gap-1">
+                        {pagination.map((p, i) =>
+                          p === "..." ? (
+                            <span
+                              key={`dots-${i}`}
+                              className="w-10 h-10 inline-flex items-center justify-center text-gray-400 text-sm"
+                            >
+                              …
+                            </span>
+                          ) : (
+                            <button
+                              key={p}
+                              onClick={() => handlePageChange(p)}
+                              className={`w-10 h-10 border text-xs font-semibold uppercase tracking-widest transition ${
+                                p === currentPage
+                                  ? "bg-gray-900 text-white border-gray-900"
+                                  : "border-gray-200 text-gray-700 hover:border-gray-400"
+                              }`}
+                              type="button"
+                              aria-current={p === currentPage ? "page" : undefined}
+                            >
+                              {p}
+                            </button>
+                          )
+                        )}
+                      </div>
 
                       <button
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className="px-4 py-2 rounded-lg border text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ borderColor: robe.blush, color: robe.text }}
+                        className="h-10 px-3 border border-gray-200 text-xs font-semibold uppercase tracking-widest text-gray-700 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                        type="button"
+                        aria-label="Next page"
                       >
-                        Next →
+                        Next <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -988,6 +1113,7 @@ export default function ComboOffersListingPage() {
   );
 }
 
+/* -------------------- Cards -------------------- */
 function ComboCard({
   offer,
   isWishlisted,
@@ -1006,6 +1132,9 @@ function ComboCard({
   const badgeType = getComboBadge(offer.tags);
   const router = useRouter();
 
+  const outOfStock = (offer.remainingStock ?? 0) <= 0;
+  const disabled = !offer.isActive || outOfStock || isInCart;
+
   const handleCardClick = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("button") || target.closest("a")) return;
@@ -1014,151 +1143,135 @@ function ComboCard({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group relative bg-white rounded-xl overflow-hidden border transition-all duration-300 hover:shadow-xl"
-      style={{ borderColor: robe.blush }}
+      transition={{ duration: 0.35 }}
+      className="group relative bg-white border border-gray-200 shadow-[0_1px_0_rgba(0,0,0,0.03)] hover:shadow-[0_10px_22px_rgba(0,0,0,0.10)] transition-shadow"
       onClick={handleCardClick}
     >
-      <Link href={getComboDetailHref(offer)}>
-        <div className="relative h-64 overflow-hidden bg-linear-to-br from-(--robe-cream) to-white">
+      <Link href={getComboDetailHref(offer)} className="block">
+        <div className="relative h-56 bg-white overflow-hidden">
           <Image
-            src={offer.thumbnail || "/api/placeholder/600/600"}
+            src={offer.thumbnail || "/placeholder-image.jpg"}
             alt={offer.name}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-contain p-6 transition-transform duration-300 group-hover:scale-[1.03]"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
 
-          <div className="absolute top-3 left-3 flex flex-col gap-2">
-            <span
-              className="px-3 py-1 text-xs font-bold rounded-full shadow-sm capitalize"
-              style={{
-                backgroundColor:
-                  badgeType === "Limited"
-                    ? robe.maroon
-                    : badgeType === "Festive"
-                    ? robe.success
-                    : badgeType === "Seasonal"
-                    ? robe.warning
-                    : robe.maroon,
-                color: "white",
-              }}
-            >
+          {/* badges */}
+          <div className="absolute left-3 top-3 flex flex-col gap-2">
+            <div className="bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1">
               {badgeType}
-            </span>
-
+            </div>
             {!offer.isActive && (
-              <span className="px-3 py-1 bg-gray-800 text-white text-xs font-bold rounded-full shadow-sm">EXPIRED</span>
+              <div className="bg-gray-200 text-gray-700 text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+                Expired
+              </div>
             )}
           </div>
 
-          <span
-            className="absolute top-3 right-3 px-3 py-1 text-xs font-bold rounded-full shadow-sm"
-            style={{ backgroundColor: robe.maroon, color: "white" }}
-          >
-            {offer.pricing.discountPercentage}% OFF
-          </span>
-
-          <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/70 text-white text-xs font-medium rounded-full backdrop-blur-sm">
-            {offer.products?.length || 0} Items
+          {/* discount */}
+          <div className="absolute right-3 top-3 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+            {offer.pricing.discountPercentage}% off
           </div>
 
-          {isLimitedStock && (
-            <div className="absolute bottom-3 right-3 px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full">
-              Only {offer.remainingStock} left!
+          {/* footer chips */}
+          <div className="absolute left-3 bottom-3 flex items-center gap-2">
+            <div className="bg-white/90 backdrop-blur border border-gray-200 text-[10px] font-bold uppercase tracking-widest px-3 py-1 text-gray-800">
+              {(offer.products?.length || 0).toString()} items
+            </div>
+            {offer.isActive && daysRemaining > 0 && (
+              <div className="bg-white/90 backdrop-blur border border-gray-200 text-[10px] font-bold uppercase tracking-widest px-3 py-1 text-gray-800">
+                {daysRemaining}d left
+              </div>
+            )}
+          </div>
+
+          {isLimitedStock && offer.isActive && !outOfStock && (
+            <div className="absolute right-3 bottom-3 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+              only {offer.remainingStock} left
             </div>
           )}
+
+          {outOfStock && (
+            <div className="absolute right-3 bottom-3 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+              out of stock
+            </div>
+          )}
+
+          {/* hover action icons */}
+          <div className="absolute right-3 top-14 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleWishlist();
+              }}
+              type="button"
+              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-red-500 bg-white/90 backdrop-blur border border-gray-200"
+              aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            >
+              <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              type="button"
+              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-700 bg-white/90 backdrop-blur border border-gray-200"
+              aria-label="Action"
+            >
+              <RefreshCcw className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="px-4 pb-5 pt-3 text-center">
+          <div className="text-[11px] font-semibold uppercase tracking-widest text-gray-500">
+            Combo bundle
+          </div>
+
+          <div className="mt-2 text-xs text-gray-800 leading-snug line-clamp-2 min-h-8">
+            {offer.name}
+          </div>
+
+          <div className="mt-2 text-[11px] text-gray-500 line-clamp-2 min-h-7.5">
+            {offer.description}
+          </div>
+
+          <div className="mt-3 flex items-baseline justify-center gap-2">
+            <span className="text-xs text-gray-400 line-through">{formatTk(offer.pricing.originalTotal)}</span>
+            <span className="text-sm font-bold text-[#F84E25]">{formatTk(offer.pricing.discountedPrice)}</span>
+          </div>
+
+          <div className="mt-2 text-[11px] text-gray-600">
+            Save <span className="font-semibold">{formatTk(offer.savings || 0)}</span> •{" "}
+            <span className="font-semibold">{offer.inventory.soldCount}</span> sold
+          </div>
         </div>
       </Link>
 
-      <button
-        onClick={onToggleWishlist}
-        className="absolute top-12 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all shadow-sm z-10 backdrop-blur-sm"
-        style={{ backgroundColor: "rgba(255, 255, 255, 0.9)" }}
-        aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-      >
-        <Heart
-          className={`w-4 h-4 ${isWishlisted ? "fill-(--robe-maroon) text-(--robe-maroon)" : ""}`}
-          style={{ color: isWishlisted ? robe.maroon : robe.text }}
-        />
-      </button>
-
-      <div className="p-5">
-        <div className="mb-3">
-          <Link href={getComboDetailHref(offer)}>
-            <h3
-              className="text-base font-semibold mb-1 hover:opacity-80 transition-opacity line-clamp-1"
-              style={{ color: robe.text }}
-            >
-              {offer.name}
-            </h3>
-          </Link>
-          <p className="text-xs text-gray-600 line-clamp-2 mb-2">{offer.description}</p>
-        </div>
-
-        <div className="flex flex-wrap gap-1 mb-4">
-          {offer.features?.slice(0, 3).map((feature, i) => (
-            <span key={i} className="px-2 py-1 text-xs rounded" style={{ backgroundColor: robe.cream, color: robe.text }}>
-              {feature}
-            </span>
-          ))}
-        </div>
-
-        <div className="mb-4">
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-xl font-bold" style={{ color: robe.maroon }}>
-              {formatTk(offer.pricing.discountedPrice)}
-            </span>
-            <span className="text-sm line-through" style={{ color: robe.sand }}>
-              {formatTk(offer.pricing.originalTotal)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium" style={{ color: robe.success }}>
-              Save {formatTk(offer.savings || 0)}
-            </span>
-            <span className="text-xs" style={{ color: robe.text }}>
-              {offer.products?.length || 0} products
-            </span>
-          </div>
-        </div>
-
-        {offer.isActive && daysRemaining > 0 && (
-          <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: robe.cream }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4" style={{ color: robe.sand }} />
-                <span className="text-xs font-medium" style={{ color: robe.text }}>
-                  Ends in {daysRemaining} days
-                </span>
-              </div>
-              <span className="text-xs" style={{ color: robe.sand }}>
-                {new Date(offer.validity.endDate).toLocaleDateString()}
-              </span>
-            </div>
-          </div>
-        )}
-
+      {/* CTA (disabled states) */}
+      <div className="px-4 pb-4">
         <button
-          className={`w-full py-2.5 text-white font-medium rounded-lg transition-all duration-300 flex items-center justify-center gap-2 ${
-            !offer.isActive || (offer.remainingStock ?? 0) <= 0 || isInCart
-              ? "opacity-50 cursor-not-allowed"
-              : "hover:shadow-lg"
-          }`}
-          style={{ backgroundColor: robe.maroon }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (disabled) return;
+            onAddToCart();
+          }}
+          disabled={disabled}
           type="button"
-          onClick={onAddToCart}
-          disabled={!offer.isActive || (offer.remainingStock ?? 0) <= 0 || isInCart}
+          className={[
+            "w-full h-11 uppercase tracking-widest text-xs font-bold transition",
+            disabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#B8B8B8] text-white hover:bg-[#AFAFAF]",
+            "opacity-0 group-hover:opacity-100",
+          ].join(" ")}
         >
-          <ShoppingBag className="w-4 h-4" />
-          {!offer.isActive
-            ? "Offer Expired"
-            : (offer.remainingStock ?? 0) <= 0
-            ? "Out of Stock"
-            : isInCart
-            ? "In Cart"
-            : `Add Combo - Save ${offer.pricing.discountPercentage}%`}
+          {!offer.isActive ? "OFFER EXPIRED" : outOfStock ? "OUT OF STOCK" : isInCart ? "IN CART" : "SHOP NOW"}
         </button>
       </div>
     </motion.div>
@@ -1181,6 +1294,9 @@ function ComboListItem({
   const daysRemaining = getDaysRemaining(offer.validity.endDate);
   const router = useRouter();
 
+  const outOfStock = (offer.remainingStock ?? 0) <= 0;
+  const disabled = !offer.isActive || outOfStock || isInCart;
+
   const handleCardClick = (event: MouseEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     if (target.closest("button") || target.closest("a")) return;
@@ -1189,158 +1305,129 @@ function ComboListItem({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl overflow-hidden border transition-all duration-300 hover:shadow-md"
-      style={{ borderColor: robe.blush }}
+      className="bg-white border border-gray-200 shadow-[0_1px_0_rgba(0,0,0,0.03)] hover:shadow-[0_10px_22px_rgba(0,0,0,0.10)] transition-shadow"
       onClick={handleCardClick}
     >
       <div className="flex flex-col md:flex-row">
         <Link href={getComboDetailHref(offer)} className="md:w-64 shrink-0">
-          <div className="relative h-64 md:h-full overflow-hidden bg-linear-to-br from-(--robe-cream) to-white">
+          <div className="relative h-56 md:h-full bg-white overflow-hidden">
             <Image
-              src={offer.thumbnail || "/api/placeholder/600/400"}
+              src={offer.thumbnail || "/placeholder-image.jpg"}
               alt={offer.name}
               fill
-              className="object-cover"
+              className="object-contain p-6"
               sizes="(max-width: 768px) 100vw, 256px"
             />
 
-            <div className="absolute top-3 left-3 flex flex-col gap-2">
-              <span className="px-3 py-1 text-xs font-bold rounded-full shadow-sm" style={{ backgroundColor: robe.maroon, color: "white" }}>
-                {offer.pricing.discountPercentage}% OFF
-              </span>
+            <div className="absolute left-3 top-3 flex flex-col gap-2">
+              <div className="bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+                {offer.pricing.discountPercentage}% off
+              </div>
               {!offer.isActive && (
-                <span className="px-3 py-1 bg-gray-800 text-white text-xs font-bold rounded-full shadow-sm">EXPIRED</span>
+                <div className="bg-gray-200 text-gray-700 text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+                  expired
+                </div>
               )}
             </div>
 
-            <div className="absolute bottom-3 left-3 px-3 py-1 bg-black/70 text-white text-xs font-medium rounded-full backdrop-blur-sm">
-              {offer.products?.length || 0} Items
+            <div className="absolute left-3 bottom-3 bg-white/90 backdrop-blur border border-gray-200 text-[10px] font-bold uppercase tracking-widest px-3 py-1 text-gray-800">
+              {(offer.products?.length || 0).toString()} items
+              {offer.isActive && daysRemaining > 0 ? ` • ${daysRemaining}d left` : ""}
             </div>
+
+            {outOfStock && (
+              <div className="absolute right-3 bottom-3 bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+                out of stock
+              </div>
+            )}
           </div>
         </Link>
 
-        <div className="flex-1 p-6">
-          <div className="flex flex-col h-full">
-            <div className="flex-1">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <Link href={getComboDetailHref(offer)}>
-                    <h3 className="text-xl font-serif font-semibold mt-1 hover:opacity-80 transition-opacity mb-2" style={{ color: robe.text }}>
-                      {offer.name}
-                    </h3>
-                  </Link>
-                  <p className="text-sm mb-4" style={{ color: robe.text }}>
-                    {offer.description}
-                  </p>
-                </div>
-                <button onClick={onToggleWishlist} className="transition-colors hover:opacity-80" aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}>
-                  <Heart className={`w-5 h-5 ${isWishlisted ? "fill-(--robe-maroon) text-(--robe-maroon)" : ""}`} style={{ color: isWishlisted ? robe.maroon : robe.text }} />
-                </button>
+        <div className="flex-1 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-widest text-gray-500">
+                Combo bundle
+              </div>
+              <Link href={getComboDetailHref(offer)} className="block mt-2">
+                <div className="text-sm font-semibold text-gray-900">{offer.name}</div>
+              </Link>
+
+              <div className="mt-2 text-xs text-gray-600 line-clamp-2">{offer.description}</div>
+
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-xs text-gray-400 line-through">{formatTk(offer.pricing.originalTotal)}</span>
+                <span className="text-sm font-bold text-[#F84E25]">{formatTk(offer.pricing.discountedPrice)}</span>
+                <span className="text-[11px] text-gray-500">
+                  Save <span className="font-semibold">{formatTk(offer.savings || 0)}</span>
+                </span>
               </div>
 
-              <div className="flex flex-wrap gap-2 mb-4">
-                {offer.features?.slice(0, 4).map((feature, i) => (
-                  <span key={i} className="px-3 py-1 text-xs rounded-lg" style={{ backgroundColor: robe.cream, color: robe.text }}>
-                    {feature}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(offer.features || []).slice(0, 4).map((f, i) => (
+                  <span key={i} className="px-2 py-1 text-[11px] border border-gray-200 bg-white text-gray-700">
+                    {f}
                   </span>
                 ))}
               </div>
 
-              <div className="mb-6">
-                <div className="text-sm mb-2" style={{ color: robe.sand }}>
-                  Includes:
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {offer.products?.slice(0, 4).map((comboProduct, i) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: robe.cream }}>
-                      <Package className="w-3 h-3" style={{ color: robe.sand }} />
-                      <span className="text-xs" style={{ color: robe.text }}>
-                        {comboProduct.product?.name || `Item ${i + 1}`}
-                        {comboProduct.quantity > 1 && ` × ${comboProduct.quantity}`}
-                      </span>
-                    </div>
-                  ))}
-                  {offer.products && offer.products.length > 4 && (
-                    <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: robe.cream }}>
-                      <span className="text-xs" style={{ color: robe.text }}>
-                        +{offer.products.length - 4} more items
-                      </span>
-                    </div>
-                  )}
-                </div>
+              <div className="mt-3 text-[11px] text-gray-500 flex flex-wrap gap-3">
+                <span className="inline-flex items-center gap-1">
+                  <Users className="w-4 h-4 text-gray-400" /> {offer.inventory.soldCount} sold
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Package className="w-4 h-4 text-gray-400" /> {offer.remainingStock ?? 0} left
+                </span>
+                {offer.isActive && daysRemaining > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="w-4 h-4 text-gray-400" /> {daysRemaining}d left
+                  </span>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-6 border-t" style={{ borderColor: robe.blush }}>
-              <div>
-                <div className="flex items-baseline gap-3 mb-1">
-                  <span className="text-2xl font-bold" style={{ color: robe.maroon }}>
-                    {formatTk(offer.pricing.discountedPrice)}
-                  </span>
-                  <span className="text-lg line-through" style={{ color: robe.sand }}>
-                    {formatTk(offer.pricing.originalTotal)}
-                  </span>
-                  <span className="px-2 py-1 text-sm font-bold rounded" style={{ backgroundColor: robe.cream, color: robe.maroon }}>
-                    Save {formatTk(offer.savings || 0)}
-                  </span>
-                </div>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleWishlist();
+              }}
+              className="text-gray-400 hover:text-red-500 transition-colors"
+              aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              type="button"
+            >
+              <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
+            </button>
+          </div>
 
-                <div className="flex items-center gap-4 mt-2">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4" style={{ color: robe.sand }} />
-                    <span className="text-xs" style={{ color: robe.text }}>
-                      {offer.inventory.soldCount} sold
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-4 h-4" style={{ color: robe.warning }} />
-                    <span className="text-xs" style={{ color: robe.text }}>
-                      {offer.remainingStock} in stock
-                    </span>
-                  </div>
-                  {offer.isActive && daysRemaining > 0 && (
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4" style={{ color: robe.success }} />
-                      <span className="text-xs" style={{ color: robe.text }}>
-                        {daysRemaining} days left
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (disabled) return;
+                onAddToCart();
+              }}
+              disabled={disabled}
+              type="button"
+              className={`h-10 px-5 uppercase tracking-widest text-xs font-bold transition ${
+                disabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#B8B8B8] text-white hover:bg-[#AFAFAF]"
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4" />
+                {!offer.isActive ? "EXPIRED" : outOfStock ? "OUT OF STOCK" : isInCart ? "IN CART" : "SHOP NOW"}
+              </span>
+            </button>
 
-              <div className="flex gap-3">
-                <button
-                  className={`px-6 py-2.5 text-white font-medium rounded-lg transition-all flex items-center gap-2 ${
-                    !offer.isActive || (offer.remainingStock ?? 0) <= 0 || isInCart
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:shadow-lg"
-                  }`}
-                  style={{ backgroundColor: robe.maroon }}
-                  type="button"
-                  onClick={onAddToCart}
-                  disabled={!offer.isActive || (offer.remainingStock ?? 0) <= 0 || isInCart}
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  {!offer.isActive
-                    ? "Expired"
-                    : (offer.remainingStock ?? 0) <= 0
-                    ? "Sold Out"
-                    : isInCart
-                    ? "In Cart"
-                    : "Add Combo"}
-                </button>
-                <Link
-                  href={getComboDetailHref(offer)}
-                  className="px-6 py-2.5 font-medium rounded-lg transition-colors border"
-                  style={{ borderColor: robe.blush, color: robe.text, backgroundColor: "white" }}
-                >
-                  View Details
-                </Link>
-              </div>
-            </div>
+            <Link
+              href={getComboDetailHref(offer)}
+              className="h-10 px-5 border border-gray-200 uppercase tracking-widest text-xs font-bold text-gray-700 hover:border-gray-400 inline-flex items-center"
+            >
+              View details
+            </Link>
           </div>
         </div>
       </div>

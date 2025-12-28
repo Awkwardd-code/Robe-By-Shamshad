@@ -4,302 +4,168 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { AnimatePresence, motion, animate, useMotionValue, useReducedMotion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Sparkles, Star, Gift } from "lucide-react";
+import {
+  AnimatePresence,
+  motion,
+  animate,
+  useMotionValue,
+  useReducedMotion,
+} from "framer-motion";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Poppins, Great_Vibes, Playfair_Display, Cormorant_Garamond } from "next/font/google";
+
+// ===== Fonts (close to reference) =====
+const headlineFont = Poppins({ subsets: ["latin"], weight: ["700", "800"] });
+const bodyFont = Poppins({ subsets: ["latin"], weight: ["300", "400", "500"] });
+const brandScript = Great_Vibes({ subsets: ["latin"], weight: ["400"] });
+const titleFont = Playfair_Display({ subsets: ["latin"], weight: ["600", "700"] });
+const descFont = Cormorant_Garamond({ subsets: ["latin"], weight: ["400", "500"] });
 
 type HomeSlide = {
   id: string;
   image: string;
-  title: string;
-  subtitle: string;
+  title: string; // <-- use this in center
+  subtitle: string; // <-- use this as desc/description in center
   ctaText: string;
   ctaLink: string;
-  accentColor: string;
-  decorativeElement?: "crescent" | "star" | "ornament";
   brandText?: string;
   brandImage?: string;
 };
 
-type DecorativeElementProps = {
-  type?: HomeSlide["decorativeElement"];
-  color: string;
-  gradientId: string;
-};
-
-const DecorativeElement = ({ type, color, gradientId }: DecorativeElementProps) => {
-  switch (type) {
-    case "crescent":
-      return (
-        <div className="relative">
-          <svg width="120" height="120" viewBox="0 0 120 120" className="opacity-90">
-            <defs>
-              <radialGradient id={`crescent-glow-${gradientId}`} cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor={color} stopOpacity="0.8" />
-                <stop offset="100%" stopColor={color} stopOpacity="0" />
-              </radialGradient>
-            </defs>
-            <path
-              d="M70 20c-10 5-18 16-18 28 0 18 14 32 32 32 5 0 10-1 15-4-6 18-22 31-42 31-25 0-45-20-45-45 0-23 16-42 37-45 6-1 12-1 18 0z"
-              fill={`url(#crescent-glow-${gradientId})`}
-            />
-          </svg>
-          {[...Array(3)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-2 h-2 rounded-full bg-white"
-              style={{
-                top: `${20 + i * 30}px`,
-                left: `${80 + i * 10}px`,
-              }}
-              animate={{
-                opacity: [0, 1, 0],
-                scale: [0, 1, 0],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                delay: i * 0.3,
-              }}
-            />
-          ))}
-        </div>
-      );
-    case "star":
-      return (
-        <div className="relative">
-          <Sparkles className="w-24 h-24" style={{ color }} />
-          <motion.div
-            className="absolute inset-0"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          >
-            {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="absolute w-1 h-1 rounded-full bg-white"
-                style={{
-                  top: "50%",
-                  left: "50%",
-                  transform: `rotate(${i * 60}deg) translateX(45px)`,
-                }}
-              />
-            ))}
-          </motion.div>
-        </div>
-      );
-    case "ornament":
-      return (
-        <div className="relative">
-          <Gift className="w-28 h-28" style={{ color }} />
-          <div className="absolute -top-2 -right-2">
-            <Star className="w-8 h-8" style={{ color }} fill={color} />
-          </div>
-        </div>
-      );
-    default:
-      return null;
-  }
-};
-
-const ACCENT_COLORS = ["#C9A96E", "#D4AF37", "#B76E79", "#2F855A", "#7C3AED"];
-const DECORATIVE_TYPES: DecorativeElementProps["type"][] = [
-  "crescent",
-  "star",
-  "ornament",
-];
 const SLIDE_MS = 8000;
 const FALLBACK_BANNER_IMAGE =
   "https://images.unsplash.com/photo-1503342481797-1b6e3bd5f763?w=1600&h=900&fit=crop";
 
-interface Particle {
-  id: number;
-  left: number;
-  top: number;
-  duration: number;
-  delay: number;
-}
-
-// Modern White/Silver Skeleton Loading Component
-const SliderSkeleton = () => {
-  return (
-    <section className="relative w-full overflow-hidden rounded-2xl lg:rounded-3xl bg-linear-to-br from-slate-900 via-gray-900 to-slate-900 shadow-2xl min-h-[70vh]">
-      <div className="relative h-[calc(70vh-15px)] max-h-175 min-h-135 w-full">
-        {/* Animated shimmer background */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute inset-0 bg-linear-to-br from-slate-800/50 via-gray-900/30 to-slate-800/50" />
-          <motion.div
-            className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent"
-            animate={{
-              x: ['-100%', '100%'],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
-        </div>
-
-        {/* Floating particles skeleton */}
-        <div className="absolute inset-0 overflow-hidden">
-          {[...Array(12)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 rounded-full bg-white/20"
-              style={{
-                left: `${(i * 8) % 100}%`,
-                top: `${(i * 7) % 100}%`,
-              }}
-              animate={{
-                y: [0, -30, 0],
-                opacity: [0.3, 0.8, 0.3],
-              }}
-              transition={{
-                duration: 3 + i * 0.3,
-                repeat: Infinity,
-                delay: i * 0.2,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Main content skeleton */}
-        <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8">
-          <div className="relative z-20 text-center max-w-4xl mx-auto w-full">
-            {/* Decorative line skeleton */}
-            <div className="flex justify-center mb-10">
-              <div className="h-px w-40 bg-linear-to-r from-transparent via-white/30 to-transparent" />
-            </div>
-
-            {/* Title skeleton with shimmer effect */}
-            <div className="space-y-6 mb-10">
-              <div className="relative overflow-hidden rounded-lg">
-                <div className="h-14 bg-linear-to-r from-gray-800/80 via-gray-700/60 to-gray-800/80 rounded-lg mx-auto w-3/4" />
-                <motion.div
-                  className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent"
-                  animate={{ x: ['-100%', '100%'] }}
-                  transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
-                />
-              </div>
-              <div className="relative overflow-hidden">
-                <div className="h-14 bg-linear-to-r from-gray-700/60 via-gray-800/80 to-gray-700/60 rounded-lg mx-auto w-2/3" />
-                <motion.div
-                  className="absolute inset-0 bg-linear-to-r from-transparent via-white/10 to-transparent"
-                  animate={{ x: ['-100%', '100%'] }}
-                  transition={{ duration: 2, repeat: Infinity, delay: 0.7 }}
-                />
-              </div>
-            </div>
-
-            {/* Subtitle skeleton */}
-            <div className="mt-8 space-y-4 max-w-2xl mx-auto">
-              <div className="h-4 bg-linear-to-r from-gray-800/60 to-gray-700/60 rounded w-full" />
-              <div className="h-4 bg-linear-to-r from-gray-700/60 to-gray-800/60 rounded w-5/6 mx-auto" />
-              <div className="h-4 bg-linear-to-r from-gray-800/60 to-gray-700/60 rounded w-4/6 mx-auto" />
-            </div>
-
-            {/* CTA button skeleton with glow */}
-            <div className="mt-12">
-              <div className="relative inline-block">
-                <div className="relative overflow-hidden rounded-full px-12 py-5 bg-linear-to-r from-gray-800/70 to-gray-700/70 backdrop-blur-sm border border-white/10">
-                  <div className="w-36 h-5 bg-linear-to-r from-gray-600/60 to-gray-500/60 rounded" />
-                  <motion.div
-                    className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent"
-                    animate={{ x: ['-100%', '100%'] }}
-                    transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-                  />
-                </div>
-                {/* Pulsing glow effect */}
-                <motion.div
-                  className="absolute -inset-4 rounded-full bg-white/5 blur-xl"
-                  animate={{ opacity: [0.3, 0.6, 0.3] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Side decorative elements skeleton */}
-        <div className="absolute left-8 md:left-16 top-1/2 -translate-y-1/2 opacity-60 z-20">
-          <div className="relative">
-            <div className="w-28 h-28 rounded-full bg-linear-to-br from-gray-800/50 to-gray-700/40 backdrop-blur-sm border border-white/10" />
-            <div className="absolute inset-0 rounded-full border border-white/5" />
-          </div>
-        </div>
-        <div className="absolute right-8 md:right-16 top-1/2 -translate-y-1/2 opacity-60 z-20">
-          <div className="relative">
-            <div className="w-28 h-28 rounded-full bg-linear-to-br from-gray-700/40 to-gray-800/50 backdrop-blur-sm border border-white/10" />
-            <div className="absolute inset-0 rounded-full border border-white/5" />
-          </div>
-        </div>
-
-        {/* Slide indicators skeleton */}
-        <div className="absolute bottom-8 right-8 z-20">
-          <div className="flex items-center gap-3">
-            {[1, 2, 3, 4, 5].map((_, idx) => (
-              <motion.div
-                key={idx}
-                className={`h-1.5 rounded-full ${
-                  idx === 0 
-                    ? 'w-10 bg-linear-to-r from-white/80 to-white/60' 
-                    : 'w-2 bg-white/20'
-                }`}
-                animate={idx === 0 ? {
-                  background: [
-                    'linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,255,255,0.6))',
-                    'linear-gradient(90deg, rgba(255,255,255,0.6), rgba(255,255,255,0.8))',
-                  ]
-                } : {}}
-                transition={idx === 0 ? { duration: 2, repeat: Infinity } : {}}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Navigation arrows skeleton */}
-        <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20">
-          <div className="p-3 rounded-full bg-linear-to-br from-gray-800/40 to-gray-700/30 backdrop-blur-sm border border-white/10">
-            <ChevronLeft className="w-6 h-6 text-white/40" />
-          </div>
-        </div>
-        <div className="absolute right-6 top-1/2 -translate-y-1/2 z-20">
-          <div className="p-3 rounded-full bg-linear-to-br from-gray-700/30 to-gray-800/40 backdrop-blur-sm border border-white/10">
-            <ChevronRight className="w-6 h-6 text-white/40" />
-          </div>
-        </div>
-
-        {/* Progress bar skeleton */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 h-0.5 bg-linear-to-r from-transparent via-white/5 to-transparent">
-          <motion.div
-            className="h-full rounded-r-full bg-linear-to-r from-white/30 via-white/50 to-white/30"
-            animate={{ width: ["0%", "100%"] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
-          />
-        </div>
-
-        {/* Brand logo skeleton */}
-        <div className="absolute bottom-8 left-8 z-20">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-linear-to-br from-gray-800/50 to-gray-700/40 backdrop-blur-sm border border-white/10" />
-            <div className="space-y-2">
-              <div className="h-2 w-24 rounded-full bg-linear-to-r from-gray-800/60 to-gray-700/50" />
-              <div className="h-2 w-16 rounded-full bg-linear-to-r from-gray-700/50 to-gray-800/60" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+// ===== Theme tokens to “maintain colors” =====
+const THEME = {
+  frameBg: "#A9876F", // warm beige
+  gold: "rgba(212,175,55,0.9)",
+  goldLine: "rgba(212,175,55,0.55)",
+  overlayTop: "rgba(0,0,0,0.08)",
+  overlayBottom: "rgba(0,0,0,0.18)",
+  vignette: "rgba(0,0,0,0.28)",
+  ctaRed: "#C52B2B",
 };
 
-export default function ModernElegantSlider() {
+// ===== Decorative hanging shapes (like the reference banner) =====
+function HangingDecor() {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-20">
+      {/* Left hanging crescent */}
+      <div className="absolute left-6 top-2 md:left-10 md:top-4">
+        <svg width="92" height="160" viewBox="0 0 92 160" fill="none" aria-hidden>
+          <path d="M46 0 V78" stroke={THEME.goldLine} strokeWidth="2" />
+          <path
+            d="M62 86c-10 5-16 16-16 28 0 17 13 30 30 30 4 0 8-1 12-3-5 15-18 25-35 25-22 0-40-18-40-40 0-20 14-36 33-39 5-1 10-1 16-1z"
+            fill={THEME.gold}
+          />
+          <path
+            d="M76 130l3 7 7 3-7 3-3 7-3-7-7-3 7-3 3-7z"
+            fill="rgba(212,175,55,0.8)"
+          />
+        </svg>
+      </div>
+
+      {/* Right hanging star */}
+      <div className="absolute right-6 top-2 md:right-10 md:top-4">
+        <svg width="92" height="160" viewBox="0 0 92 160" fill="none" aria-hidden>
+          <path d="M46 0 V78" stroke={THEME.goldLine} strokeWidth="2" />
+          <path
+            d="M46 92l6 14 14 6-14 6-6 14-6-14-14-6 14-6 6-14z"
+            fill={THEME.gold}
+          />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ===== Eid-style geometric background layer =====
+function EidGeometricBg() {
+  return (
+    <div className="absolute inset-0 z-10">
+      <div className="absolute inset-0" style={{ backgroundColor: THEME.frameBg }} />
+      <div
+        className="absolute inset-0 opacity-25 mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "linear-gradient(120deg, rgba(255,255,255,0.18) 1px, transparent 1px), linear-gradient(60deg, rgba(255,255,255,0.12) 1px, transparent 1px)",
+          backgroundSize: "44px 44px",
+          backgroundPosition: "0 0, 8px 12px",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(circle_at_center, transparent 40%, rgba(0,0,0,0.28) 100%)",
+        }}
+      />
+    </div>
+  );
+}
+
+// ===== Proper skeleton (correct aspect ratio + size, matching colors) =====
+function EidSliderSkeleton() {
+  return (
+    <section
+      className="relative z-0 mt-3 w-full overflow-hidden rounded-2xl lg:rounded-3xl shadow-2xl md:mt-0 aspect-4/3 md:aspect-22/9"
+      style={{ backgroundColor: THEME.frameBg }}
+    >
+      <EidGeometricBg />
+      <HangingDecor />
+
+      {/* shimmer */}
+      <div className="absolute inset-0 z-30 overflow-hidden">
+        <motion.div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)",
+          }}
+          animate={{ x: ["-120%", "120%"] }}
+          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </div>
+
+      {/* content placeholders (title + desc center bottom like reference) */}
+      <div className="absolute inset-0 z-40 flex items-end justify-center pb-10 md:pb-12 px-4">
+        <div className="w-full max-w-3xl text-center">
+          <div className="mx-auto h-10 sm:h-12 md:h-14 w-[70%] rounded-md bg-white/18" />
+          <div className="mx-auto mt-4 h-4 sm:h-5 w-[46%] rounded bg-white/14" />
+        </div>
+      </div>
+
+      {/* CTA placeholder bottom-right */}
+      <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-40">
+        <div
+          className="h-10 md:h-11 w-28 md:w-32 rounded-md"
+          style={{ backgroundColor: "rgba(197,43,43,0.55)" }}
+        />
+      </div>
+
+      {/* brand placeholder bottom-left */}
+      <div className="absolute bottom-6 left-6 md:bottom-8 md:left-8 z-40">
+        <div className="h-8 w-40 rounded bg-white/12" />
+      </div>
+
+      {/* arrows placeholders */}
+      <div className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 z-40 h-10 w-10 rounded-full bg-black/10" />
+      <div className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 z-40 h-10 w-10 rounded-full bg-black/10" />
+
+      {/* progress placeholder */}
+      <div className="absolute bottom-0 left-0 right-0 z-40 h-0.75 bg-black/10" />
+    </section>
+  );
+}
+
+export default function ModernElegantSlider_EidBannerFrame() {
   const reduceMotion = useReducedMotion();
+
   const [current, setCurrent] = useState(0);
   const [dir, setDir] = useState<1 | -1>(1);
   const [isAuto, setIsAuto] = useState(true);
   const [isHovering, setIsHovering] = useState(false);
-  const [particles, setParticles] = useState<Particle[]>([]);
   const [slides, setSlides] = useState<HomeSlide[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -319,10 +185,7 @@ export default function ModernElegantSlider() {
         signal: controller.signal,
       });
 
-      if (!response.ok) {
-        throw new Error(`Failed to load collections (${response.status})`);
-      }
-
+      if (!response.ok) throw new Error(`Failed to load collections (${response.status})`);
       const payload = await response.json();
       return Array.isArray(payload?.collections) ? payload.collections : [];
     };
@@ -330,15 +193,11 @@ export default function ModernElegantSlider() {
     const loadCollections = async () => {
       try {
         let collections = await fetchCollections("?status=public&limit=6");
-        let validCollections = collections.filter(
-          (item: any) => typeof item?.slug === "string" && item.slug
-        );
+        let validCollections = collections.filter((item: any) => typeof item?.slug === "string" && item.slug);
 
         if (!validCollections.length) {
           collections = await fetchCollections("?limit=6");
-          validCollections = collections.filter(
-            (item: any) => typeof item?.slug === "string" && item.slug
-          );
+          validCollections = collections.filter((item: any) => typeof item?.slug === "string" && item.slug);
         }
 
         if (cancelled || !validCollections.length) {
@@ -346,19 +205,21 @@ export default function ModernElegantSlider() {
           return;
         }
 
-        const mapped = validCollections.map((collection: any, index: number) => ({
+        // ✅ Use title + description (desc) in the center:
+        const mapped: HomeSlide[] = validCollections.map((collection: any, index: number) => ({
           id: collection._id?.toString() ?? collection.slug ?? `collection-${index}`,
-          image: collection.bannerImage?.trim()
-            ? collection.bannerImage
-            : FALLBACK_BANNER_IMAGE,
-          title: collection.bannerTitle ?? "ROBE by Shamshad",
-          subtitle: collection.bannerDescription ?? "",
-          ctaText: "EXPLORE NOW",
+          image: collection.bannerImage?.trim() ? collection.bannerImage : FALLBACK_BANNER_IMAGE,
+
+          // Center text:
+          title: (collection.bannerTitle ?? collection.title ?? "CELEBRATE EID").toString(),
+          subtitle: (collection.bannerDescription ?? collection.description ?? "Explore Our New Collection").toString(),
+
+          // CTA like reference
+          ctaText: (collection.bannerCtaText ?? "SHOP NOW").toString(),
           ctaLink: `/product-data?collectionSlug=${encodeURIComponent(collection.slug)}`,
-          accentColor: ACCENT_COLORS[index % ACCENT_COLORS.length],
-          decorativeElement:
-            DECORATIVE_TYPES[index % DECORATIVE_TYPES.length] ?? "crescent",
-          brandText: collection.bannerTitle ?? "ROBE by ShamShad",
+
+          // Brand
+          brandText: "ROBE by Shamshad",
           brandImage: collection.brandImage ?? undefined,
         }));
 
@@ -370,14 +231,11 @@ export default function ModernElegantSlider() {
         console.error("Failed to load featured collections for slider:", error);
         setSlides([]);
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     void loadCollections();
-
     return () => {
       cancelled = true;
       controller.abort();
@@ -391,25 +249,6 @@ export default function ModernElegantSlider() {
 
   const slideIndex = current % (totalSlides || 1);
   const active = slides[slideIndex];
-
-  // Generate particles once on mount and when slide changes
-  useEffect(() => {
-    const generateParticles = () => {
-      const newParticles: Particle[] = [];
-      for (let i = 0; i < 20; i++) {
-        newParticles.push({
-          id: i,
-          left: Math.random() * 100,
-          top: Math.random() * 100,
-          duration: 2 + Math.random() * 3,
-          delay: Math.random() * 5,
-        });
-      }
-      setParticles(newParticles);
-    };
-
-    generateParticles();
-  }, [slideIndex]); // Regenerate particles when slide changes
 
   const goTo = useCallback(
     (idx: number) => {
@@ -432,7 +271,6 @@ export default function ModernElegantSlider() {
     progress.set(0);
   }, [totalSlides, progress]);
 
-  // Autoplay with smooth progress
   useEffect(() => {
     animRef.current?.stop();
 
@@ -450,14 +288,6 @@ export default function ModernElegantSlider() {
 
     return () => animRef.current?.stop();
   }, [isAuto, reduceMotion, totalSlides, next, progress, slideIndex, isHovering]);
-
-  useEffect(() => {
-    const onVis = () => {
-      if (document.hidden) setIsAuto(false);
-    };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
 
   const onTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -479,37 +309,31 @@ export default function ModernElegantSlider() {
     () => ({
       enter: (d: 1 | -1) => ({
         opacity: 0,
-        x: d === 1 ? 40 : -40,
-        scale: 1.02,
-        filter: "blur(10px)",
+        x: d === 1 ? 30 : -30,
+        filter: "blur(8px)",
       }),
-      center: { 
-        opacity: 1, 
-        x: 0, 
-        scale: 1,
-        filter: "blur(0px)",
-      },
+      center: { opacity: 1, x: 0, filter: "blur(0px)" },
       exit: (d: 1 | -1) => ({
         opacity: 0,
-        x: d === 1 ? -40 : 40,
-        scale: 0.98,
-        filter: "blur(10px)",
+        x: d === 1 ? -30 : 30,
+        filter: "blur(8px)",
       }),
     }),
     []
   );
 
-  // Show skeleton while loading
-  if (isLoading) {
-    return <SliderSkeleton />;
-  }
+  // ✅ proper skeleton size + colors
+  if (isLoading) return <EidSliderSkeleton />;
 
-  // Show empty state if no slides
   if (!totalSlides) {
     return (
-      <section className="relative w-full overflow-hidden rounded-2xl lg:rounded-3xl bg-linear-to-br from-slate-900 via-gray-900 to-slate-900 shadow-2xl min-h-80">
-        <div className="flex h-full min-h-55 items-center justify-center rounded-2xl border border-white/10 bg-linear-to-br from-black/80 to-gray-900 p-8 text-center">
-          <div className="text-sm uppercase tracking-[0.4em] text-white/70">
+      <section
+        className="relative z-0 mt-3 w-full overflow-hidden rounded-2xl lg:rounded-3xl shadow-2xl md:mt-0 aspect-4/3 md:aspect-22/9"
+        style={{ backgroundColor: THEME.frameBg }}
+      >
+        <EidGeometricBg />
+        <div className="relative z-30 flex h-full items-center justify-center px-6 text-center">
+          <div className={`${bodyFont.className} text-white/90 tracking-widest uppercase text-xs sm:text-sm`}>
             No featured collections available yet.
           </div>
         </div>
@@ -519,7 +343,7 @@ export default function ModernElegantSlider() {
 
   return (
     <section
-      className="relative w-full overflow-hidden rounded-2xl lg:rounded-3xl bg-linear-to-br from-slate-900 via-gray-900 to-slate-900 shadow-2xl"
+      className="relative z-0 mt-3 w-full overflow-hidden  shadow-2xl md:mt-0 aspect-4/3 md:aspect-22/9"
       onMouseEnter={() => {
         setIsHovering(true);
         setIsAuto(false);
@@ -531,29 +355,11 @@ export default function ModernElegantSlider() {
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      {/* Animated background gradient */}
-      <div className="absolute inset-0 overflow-hidden">
-        <motion.div
-          className="absolute inset-0"
-          animate={{
-            background: [
-              "radial-gradient(circle at 20% 50%, rgba(201, 169, 110, 0.15) 0%, transparent 50%)",
-              "radial-gradient(circle at 80% 50%, rgba(212, 175, 55, 0.15) 0%, transparent 50%)",
-              "radial-gradient(circle at 50% 20%, rgba(183, 110, 121, 0.15) 0%, transparent 50%)",
-              "radial-gradient(circle at 20% 50%, rgba(201, 169, 110, 0.15) 0%, transparent 50%)",
-            ],
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-        />
-        {/* Subtle shimmer overlay */}
-        <motion.div
-          className="absolute inset-0 bg-linear-to-r from-transparent via-white/2 to-transparent"
-          animate={{ x: ['-100%', '100%'] }}
-          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-        />
-      </div>
+      {/* Frame background */}
+      <EidGeometricBg />
+      <HangingDecor />
 
-      <div className="relative h-[calc(70vh-15px)] max-h-175 min-h-135 w-full">
+      <div className="relative z-30 h-full w-full">
         <AnimatePresence initial={false} custom={dir} mode="wait">
           <motion.div
             key={active.id}
@@ -562,19 +368,11 @@ export default function ModernElegantSlider() {
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{
-              duration: reduceMotion ? 0.2 : 0.8,
-              ease: [0.22, 1, 0.36, 1],
-            }}
+            transition={{ duration: reduceMotion ? 0.2 : 0.65, ease: [0.22, 1, 0.36, 1] }}
             className="absolute inset-0"
           >
-            {/* Parallax background image */}
-            <motion.div
-              className="absolute inset-0 overflow-hidden"
-              initial={{ scale: 1.15 }}
-              animate={{ scale: 1.05 }}
-              transition={{ duration: reduceMotion ? 0.2 : 1.5, ease: "easeOut" }}
-            >
+            {/* Main slide image */}
+            <div className="absolute -inset-x-6 -inset-y-4 overflow-hidden md:inset-y-0">
               <Image
                 src={active.image}
                 alt={active.title}
@@ -585,373 +383,106 @@ export default function ModernElegantSlider() {
                 quality={100}
               />
 
-              {/* Sophisticated gradient overlay */}
-              <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/30 to-black/10" />
-              <div className="absolute inset-0 bg-linear-to-r from-black/20 via-transparent to-black/20" />
-              <div className="absolute inset-0" style={{
-                background: `linear-gradient(45deg, transparent 40%, ${active.accentColor}22 50%, transparent 60%)`,
-                opacity: 0.3
-              }} />
-              {/* Metallic sheen */}
-              <div className="absolute inset-0 bg-linear-to-br from-transparent via-white/5 to-transparent" />
-            </motion.div>
-
-            {/* Enhanced particle effects */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-              {particles.map((particle) => (
-                <motion.div
-                  key={`${slideIndex}-${particle.id}`}
-                  className="absolute w-1.5 h-1.5 rounded-full"
-                  style={{
-                    left: `${particle.left}%`,
-                    top: `${particle.top}%`,
-                    background: `radial-gradient(circle, ${active.accentColor}88, transparent)`,
-                  }}
-                  animate={{
-                    y: [0, -150],
-                    opacity: [0, 0.8, 0],
-                    scale: [0.5, 1.2, 0.5],
-                  }}
-                  transition={{
-                    duration: particle.duration,
-                    repeat: Infinity,
-                    delay: particle.delay,
-                    ease: "easeOut",
-                  }}
-                />
-              ))}
+              {/* Warm + soft overlays like reference */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(to_bottom, ${THEME.overlayTop}, ${THEME.overlayBottom})`,
+                }}
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `radial-gradient(circle_at_center, rgba(0,0,0,0.02), rgba(0,0,0,0.22))`,
+                }}
+              />
             </div>
 
-            {/* Floating decorative dots */}
-            <div className="absolute inset-0 overflow-hidden">
-              {[...Array(8)].map((_, i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-1 h-1 rounded-full bg-white/20"
-                  style={{
-                    left: `${20 + (i * 10)}%`,
-                    top: `${30 + (i * 5)}%`,
-                  }}
-                  animate={{
-                    y: [0, -20, 0],
-                    opacity: [0.3, 0.7, 0.3],
-                  }}
-                  transition={{
-                    duration: 3 + i * 0.5,
-                    repeat: Infinity,
-                    delay: i * 0.4,
-                  }}
-                />
-              ))}
-            </div>
-
-            {/* Left decorative element with glow */}
-            <motion.div
-              className="absolute left-8 md:left-16 top-1/2 -translate-y-1/2 z-20"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 0.8, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <div className="relative">
-                <DecorativeElement
-                  type={active.decorativeElement}
-                  color={active.accentColor || "#C9A96E"}
-                  gradientId={active.id}
-                />
-                <motion.div
-                  className="absolute -inset-4 rounded-full blur-xl"
-                  style={{ backgroundColor: `${active.accentColor}40` }}
-                  animate={{ opacity: [0.3, 0.6, 0.3] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                />
-              </div>
-            </motion.div>
-
-            {/* Right decorative element (mirrored) with glow */}
-            <motion.div
-              className="absolute right-8 md:right-16 top-1/2 -translate-y-1/2 z-20"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 0.8, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <div className="relative rotate-12">
-                <DecorativeElement
-                  type={active.decorativeElement}
-                  color={active.accentColor || "#C9A96E"}
-                  gradientId={active.id}
-                />
-                <motion.div
-                  className="absolute -inset-4 rounded-full blur-xl"
-                  style={{ backgroundColor: `${active.accentColor}40` }}
-                  animate={{ opacity: [0.3, 0.6, 0.3] }}
-                  transition={{ duration: 3, repeat: Infinity, delay: 0.5 }}
-                />
-              </div>
-            </motion.div>
-
-            {/* Center content with enhanced glassmorphism */}
-            <div className="absolute inset-0 flex items-center justify-center px-4 md:px-8">
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="relative z-20 text-center max-w-4xl mx-auto"
-              >
-                {/* Accent line with glow */}
-                <div className="flex justify-center mb-10">
-                  <motion.div
-                    className="h-px w-40 rounded-full"
-                    style={{ background: `linear-gradient(90deg, transparent, ${active.accentColor}, transparent)` }}
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 160, opacity: 1 }}
-                    transition={{ duration: 0.8, delay: 0.4 }}
-                  />
-                  <motion.div
-                    className="absolute h-px w-60 rounded-full blur-sm"
-                    style={{ background: active.accentColor }}
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 240, opacity: 0.3 }}
-                    transition={{ duration: 0.8, delay: 0.5 }}
-                  />
-                </div>
-
-                {/* Main title with enhanced gradient and glow */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.3 }}
-                  className="relative"
+            {/* ✅ Center texts = title + desc (subtitle) */}
+            <div className="absolute inset-0 flex items-center justify-center px-4 pb-10  md:items-end md:pb-12 lg:pb-26">
+              <div className="mx-auto text-center max-w-[92%] sm:max-w-3xl md:max-w-4xl">
+                <h2
+                  className={`${titleFont.className} text-white font-semibold uppercase tracking-[0.06em] sm:tracking-widest leading-tight sm:leading-none drop-shadow-[0_10px_24px_rgba(0,0,0,0.35)]`}
                 >
-                  <h2 className="font-bold tracking-wider text-white
-                             text-4xl sm:text-5xl md:text-6xl lg:text-7xl
-                             mb-4 md:mb-6 leading-tight">
-                    <span className="bg-linear-to-r from-white via-white/95 to-white/90 bg-clip-text text-transparent">
-                      {active.title.split(' ')[0]}
-                    </span>
-                    <br />
-                    <span
-                      className="bg-linear-to-r bg-clip-text text-transparent"
-                      style={{
-                        backgroundImage: `linear-gradient(45deg, ${active.accentColor}, ${active.accentColor}DD, #fff)`,
-                      }}
-                    >
-                      {active.title.split(' ').slice(1).join(' ')}
-                    </span>
-                  </h2>
-                  {/* Title glow effect */}
-                  <motion.div
-                    className="absolute -inset-8 -z-10 blur-3xl"
-                    style={{ backgroundColor: `${active.accentColor}20` }}
-                    animate={{ opacity: [0.1, 0.3, 0.1] }}
-                    transition={{ duration: 4, repeat: Infinity }}
-                  />
-                </motion.div>
+                  <span className="text-xl sm:text-3xl md:text-5xl lg:text-6xl">
+                    {active.title}
+                  </span>
+                </h2>
 
-                {/* Subtitle with enhanced glass effect */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.4 }}
-                  className="relative"
+                <p
+                  className={`${descFont.className} mt-2 sm:mt-3 text-white/95 font-medium tracking-[0.02em] sm:tracking-[0.05em] leading-snug sm:leading-normal drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)]`}
                 >
-                  <p className="mt-4 text-white/90 font-light tracking-wide
-                             text-lg sm:text-xl md:text-2xl
-                             max-w-2xl mx-auto leading-relaxed
-                             backdrop-blur-xl bg-white/5 rounded-3xl p-8 
-                             border border-white/10 shadow-2xl">
+                  <span className="text-[11px] sm:text-sm md:text-lg">
                     {active.subtitle}
-                  </p>
-                  {/* Subtle border glow */}
-                  <div className="absolute -inset-px rounded-3xl blur-sm"
-                    style={{ background: `linear-gradient(45deg, transparent, ${active.accentColor}40, transparent)` }} />
-                </motion.div>
-
-                {/* Enhanced CTA button with glow effects */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.5 }}
-                  className="mt-8 md:mt-12"
-                >
-                  <Link href={active.ctaLink}>
-                    <motion.button
-                      whileHover={{ scale: 1.05, y: -2 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="group relative cursor-pointer overflow-hidden rounded-full px-10 py-4 md:px-12 md:py-5
-                               font-semibold text-lg tracking-wider
-                               shadow-2xl backdrop-blur-xl border border-white/20
-                               transition-all duration-300"
-                      style={{
-                        background: `linear-gradient(45deg, ${active.accentColor}22, ${active.accentColor}11, transparent)`,
-                        color: active.accentColor,
-                      }}
-                    >
-                      <span className="relative z-10 flex items-center gap-3">
-                        {active.ctaText}
-                        <motion.span
-                          animate={{ x: [0, 4, 0] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                        >
-                          <ChevronRight className="w-5 h-5" />
-                        </motion.span>
-                      </span>
-                      
-                      {/* Hover glow effect */}
-                      <motion.div
-                        className="absolute inset-0 opacity-0 group-hover:opacity-100"
-                        style={{
-                          background: `linear-gradient(45deg, transparent, ${active.accentColor}33, transparent)`,
-                        }}
-                        initial={false}
-                        transition={{ duration: 0.3 }}
-                      />
-                      
-                      {/* Pulsing outer glow */}
-                      <motion.div
-                        className="absolute -inset-4 rounded-full blur-xl"
-                        style={{ backgroundColor: `${active.accentColor}40` }}
-                        animate={{ opacity: [0.1, 0.3, 0.1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                    </motion.button>
-                  </Link>
-                </motion.div>
-              </motion.div>
+                  </span>
+                </p>
+              </div>
             </div>
 
-            {/* Enhanced brand/Logo with glass effect */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              className="absolute bottom-6 left-6 md:bottom-8 md:left-8 z-20"
-            >
-              <div className="backdrop-blur-xl bg-black/30 rounded-2xl p-4 border border-white/10 shadow-lg">
-                {active.brandImage ? (
-                  <Image
-                    src={active.brandImage}
-                    alt="Brand"
-                    width={160}
-                    height={48}
-                    className="h-auto w-30 md:w-40 object-contain"
-                  />
-                ) : (
-                  <div className="text-white/90 font-light tracking-wider text-sm md:text-base">
-                    {active.brandText}
-                  </div>
-                )}
-              </div>
-            </motion.div>
+            {/* CTA bottom-right (red) */}
+            <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8">
+              <Link href={active.ctaLink}>
+                <motion.button
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`${headlineFont.className} rounded-md px-3 py-2 text-[11px] sm:px-5 sm:py-3 sm:text-sm md:text-base font-extrabold uppercase tracking-wider text-white shadow-[0_12px_26px_rgba(0,0,0,0.35)]`}
+                  style={{ backgroundColor: THEME.ctaRed }}
+                >
+                  {active.ctaText}
+                </motion.button>
+              </Link>
+            </div>
 
-            {/* Enhanced slide indicator with glow */}
-            <div className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-20">
-              <div className="flex items-center gap-3">
-                {slides.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => goTo(idx)}
-                    className={`relative w-2 h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                      idx === slideIndex ? 'w-8' : 'hover:w-4'
-                    }`}
-                    aria-label={`Go to slide ${idx + 1}`}
-                  >
-                    <div className={`absolute inset-0 rounded-full transition-colors duration-300 ${
-                      idx === slideIndex 
-                        ? 'bg-white' 
-                        : 'bg-white/40 hover:bg-white/60'
-                    }`} />
-                    {idx === slideIndex && (
-                      <motion.div
-                        className="absolute inset-0 rounded-full"
-                        style={{ background: active.accentColor }}
-                        layoutId="activeSlide"
-                      />
-                    )}
-                    {/* Indicator glow */}
-                    {idx === slideIndex && (
-                      <motion.div
-                        className="absolute -inset-2 rounded-full blur-sm"
-                        style={{ backgroundColor: active.accentColor }}
-                        animate={{ opacity: [0.3, 0.6, 0.3] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
+            {/* Brand bottom-left (script) */}
+            <div className="absolute bottom-6 left-6 md:bottom-8 md:left-8">
+              {active.brandImage ? (
+                <Image
+                  src={active.brandImage}
+                  alt="Brand"
+                  width={160}
+                  height={48}
+                  className="h-auto w-28 object-contain sm:w-36"
+                />
+              ) : (
+                <div
+                  className={`${brandScript.className} text-white/95 text-xl sm:text-2xl md:text-3xl drop-shadow-[0_10px_24px_rgba(0,0,0,0.35)]`}
+                >
+                  {active.brandText ?? "Brand"}
+                </div>
+              )}
             </div>
           </motion.div>
         </AnimatePresence>
 
-        {/* Enhanced navigation arrows with glow */}
+        {/* Arrows (subtle like reference) */}
         <button
           onClick={prev}
           aria-label="Previous slide"
-          className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 z-20
-                     group p-3 rounded-full backdrop-blur-xl bg-black/40 border border-white/20
-                     hover:bg-black/60 hover:border-white/40 transition-all duration-300 cursor-pointer
-                     shadow-lg"
+          className="absolute left-3 md:left-5 top-1/2 -translate-y-1/2 z-40 grid h-10 w-10 place-items-center rounded-full bg-black/15 hover:bg-black/25 transition"
         >
-          <motion.div
-            whileHover={{ x: -4 }}
-            whileTap={{ scale: 0.9 }}
-            className="relative"
-          >
-            <ChevronLeft className="w-6 h-6 text-white/90 group-hover:text-white relative z-10" />
-            {/* Arrow glow */}
-            <motion.div
-              className="absolute -inset-2 rounded-full blur-sm bg-white/20"
-              animate={{ opacity: [0.1, 0.3, 0.1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-          </motion.div>
+          <ChevronLeft className="h-6 w-6 text-white" />
         </button>
 
         <button
           onClick={next}
           aria-label="Next slide"
-          className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 z-20
-                     group p-3 rounded-full backdrop-blur-xl bg-black/40 border border-white/20
-                     hover:bg-black/60 hover:border-white/40 transition-all duration-300 cursor-pointer
-                     shadow-lg"
+          className="absolute right-3 md:right-5 top-1/2 -translate-y-1/2 z-40 grid h-10 w-10 place-items-center rounded-full bg-black/15 hover:bg-black/25 transition"
         >
-          <motion.div
-            whileHover={{ x: 4 }}
-            whileTap={{ scale: 0.9 }}
-            className="relative"
-          >
-            <ChevronRight className="w-6 h-6 text-white/90 group-hover:text-white relative z-10" />
-            {/* Arrow glow */}
-            <motion.div
-              className="absolute -inset-2 rounded-full blur-sm bg-white/20"
-              animate={{ opacity: [0.1, 0.3, 0.1] }}
-              transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
-            />
-          </motion.div>
+          <ChevronRight className="h-6 w-6 text-white" />
         </button>
 
-        {/* Enhanced progress indicator with gradient glow */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 h-1 bg-linear-to-r from-transparent via-white/10 to-transparent">
-          <motion.div
-            className="h-full rounded-r-full relative"
-            style={{
-              width: progress.get() + "%",
-            }}
-          >
-            <div 
-              className="absolute inset-0 rounded-r-full"
-              style={{
-                background: `linear-gradient(90deg, ${active.accentColor}44, ${active.accentColor})`,
-              }}
+        {/* Dots (subtle) */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2">
+          {slides.slice(0, 6).map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => goTo(idx)}
+              aria-label={`Go to slide ${idx + 1}`}
+              className={`h-1.5 rounded-full transition-all ${
+                idx === slideIndex ? "w-8 bg-white/90" : "w-2 bg-white/45 hover:bg-white/65"
+              }`}
             />
-            {/* Progress bar glow */}
-            <motion.div
-              className="absolute inset-0 rounded-r-full blur-sm"
-              style={{ backgroundColor: active.accentColor }}
-              animate={{ opacity: [0.3, 0.6, 0.3] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
-          </motion.div>
+          ))}
         </div>
       </div>
     </section>

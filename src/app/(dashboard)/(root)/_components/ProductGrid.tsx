@@ -219,19 +219,18 @@ const normalizeProductDoc = (doc: any): Product => {
   }
 };
 
-const toCommerceProduct = (product: Product): CommerceProduct => {
-  return {
-    id: product.id,
-    name: product.name,
-    slug: product.slug,
-    image: product.image,
-    price: product.price.current,
-    oldPrice: product.price.original,
-    category: product.category,
-    description: product.name,
-    shortDescription: product.tags?.[0] || product.category
-  };
-};
+const toCommerceProduct = (product: Product): CommerceProduct => ({
+  ...product,
+  price: product.price.current,
+  oldPrice: product.price.original,
+  pricing: {
+    current: { value: product.price.current, currency: product.price.currency },
+    original: { value: product.price.original, currency: product.price.currency },
+    discountPercentage: product.discountPercent,
+  },
+  description: product.name,
+  shortDescription: product.tags?.[0] || product.category,
+});
 
 // ========== API FUNCTIONS ==========
 const fetchWithTimeout = async (url: string, options?: RequestInit, timeout = 8000): Promise<Response> => {

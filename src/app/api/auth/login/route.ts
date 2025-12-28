@@ -6,27 +6,91 @@ import { connectToDatabase } from "@/db/client";
 
 const SESSION_MAX_AGE_SECONDS = AUTH_COOKIE_OPTIONS.maxAge ?? 60 * 60 * 24 * 7;
 
+interface Address {
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  isDefault?: boolean;
+}
+
 interface UserRecord {
   _id: ObjectId;
   name: string;
   email: string;
   password: string;
+  phone?: string;
+  bio?: string;
+  avatar?: string;
+  avatarPublicId?: string;
   role: string;
   isActive: boolean;
   emailVerified: boolean;
-  isAdmin?: boolean;
+  isAdmin?: number;
+  addresses?: Address[];
+  totalOrders?: number;
+  totalSpent?: number;
+  lastOrderDate?: string;
   lastLogin?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-async function createSession(db: Db, userId: ObjectId) {
+interface SessionUserSnapshot {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  bio: string;
+  avatar: string;
+  avatarPublicId: string;
+  role: string;
+  isActive: boolean;
+  isAdmin: number;
+  emailVerified: boolean;
+  addresses: Address[];
+  password: string;
+  totalOrders: number;
+  totalSpent: number;
+  lastOrderDate: string;
+  createdAt: string;
+  updatedAt: string;
+  lastLogin: string;
+}
+
+function buildSessionUserSnapshot(user: UserRecord): SessionUserSnapshot {
+  return {
+    _id: user._id.toString(),
+    name: user.name ?? "",
+    email: user.email ?? "",
+    phone: user.phone ?? "",
+    bio: user.bio ?? "",
+    avatar: user.avatar ?? "",
+    avatarPublicId: user.avatarPublicId ?? "",
+    role: user.role ?? "",
+    isActive: user.isActive ?? false,
+    isAdmin: user.isAdmin ?? 0,
+    emailVerified: user.emailVerified ?? false,
+    addresses: user.addresses ?? [],
+    password: user.password ?? "",
+    totalOrders: user.totalOrders ?? 0,
+    totalSpent: user.totalSpent ?? 0,
+    lastOrderDate: user.lastOrderDate ?? "",
+    createdAt: user.createdAt ?? "",
+    updatedAt: user.updatedAt ?? "",
+    lastLogin: user.lastLogin ?? ""
+  };
+}
+
+async function createSession(db: Db, user: UserRecord) {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
 
   await db.collection("sessions").insertOne({
     token,
-    userId,
+    userId: user._id,
+    user: buildSessionUserSnapshot(user),
     createdAt: new Date(),
     expiresAt
   });
@@ -62,12 +126,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const lastLoginAt = new Date().toISOString();
     await db.collection<UserRecord>("users").updateOne(
       { _id: user._id },
-      { $set: { lastLogin: new Date().toISOString() } }
+      { $set: { lastLogin: lastLoginAt } }
     );
 
-    const session = await createSession(db, user._id);
+    const sessionUser = { ...user, lastLogin: lastLoginAt };
+    const session = await createSession(db, sessionUser);
 
     const authToken = await createAuthToken({
       id: user._id.toString(),
@@ -78,7 +144,7 @@ export async function POST(req: NextRequest) {
       sessionToken: session.token
     });
 
-    const { password: _password, ...userWithoutPassword } = user;
+    const { password: _password, ...userWithoutPassword } = sessionUser;
     void _password;
 
     const response = NextResponse.json(
@@ -86,7 +152,7 @@ export async function POST(req: NextRequest) {
         message: "Login successful",
         user: {
           ...userWithoutPassword,
-          _id: user._id.toString()
+          _id: sessionUser._id.toString()
         },
         session: {
           token: session.token,

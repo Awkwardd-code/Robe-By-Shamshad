@@ -438,7 +438,7 @@ function ThankYouInner() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#5a1f2a] mx-auto"></div>
           <p className="mt-4 text-[#6b4b4b]">Validating your order...</p>
-          <p className="text-xs text-[#7a5b5b] mt-2">Clearing shopping context...</p>
+          {/* <p className="text-xs text-[#7a5b5b] mt-2">Clearing shopping context...</p> */}
         </div>
       </div>
     );
@@ -449,12 +449,12 @@ function ThankYouInner() {
       verificationStatus.buyNow ? (
         <div className="inline-flex items-center gap-2 rounded-full bg-emerald-600/10 px-4 py-2 text-xs font-semibold text-emerald-800 border border-emerald-600/20">
           <ShieldCheck className="h-4 w-4" />
-          Buy Now Context Cleared
+          {/* Buy Now Context Cleared */}
         </div>
       ) : (
         <div className="inline-flex items-center gap-2 rounded-full bg-amber-600/10 px-4 py-2 text-xs font-semibold text-amber-900 border border-amber-700/20">
           <RefreshCw className="h-4 w-4 animate-spin" />
-          Clearing Buy Now Context...
+          {/* Clearing Buy Now Context... */}
         </div>
       )
     ) : orderSource === "cart" ? (
@@ -647,8 +647,8 @@ function ThankYouInner() {
                 +880 1756 266616
               </a>{" "}
               or{" "}
-              <a href="mailto:mangoesofrajshahi@gmail.com" className="font-semibold text-[#5a1f2a] hover:underline">
-                mangoesofrajshahi@gmail.com
+              <a href="mailto:robebyshamshad@gmail.com" className="font-semibold text-[#5a1f2a] hover:underline">
+                robebyshamshad@gmail.com
               </a>
             </div>
           </div>

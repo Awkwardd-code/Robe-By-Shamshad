@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { NextRequest, NextResponse } from 'next/server';
 import { Db, ObjectId, type Document, type Filter, type Sort } from 'mongodb';
-import { AUTH_COOKIE_NAME, verifyAuthToken } from '@/lib/auth-token';
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS, createAuthToken, verifyAuthToken } from '@/lib/auth-token';
 import { connectToDatabase } from '@/db/client';
 
 
@@ -20,7 +20,9 @@ interface User {
   name: string;
   email: string;
   phone?: string;
+  bio?: string;
   avatar?: string;
+  avatarPublicId?: string;
   role: 'customer' | 'staff';
   isActive: boolean;
   isAdmin?: number;
@@ -78,13 +80,92 @@ const MAX_PAGE_LIMIT =
     : 50;
 const VERIFICATION_CODE_EXPIRY_MINUTES = 10;
 const VERIFICATION_MAX_ATTEMPTS = 5;
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+const SESSION_MAX_AGE_SECONDS = AUTH_COOKIE_OPTIONS.maxAge ?? 60 * 60 * 24 * 7;
 
 interface SessionRecord {
   _id: ObjectId;
   token: string;
   userId: ObjectId | string;
+  user?: SessionUserSnapshot;
+  createdAt?: Date;
   expiresAt?: Date;
+}
+
+interface SessionUserSnapshot {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  bio: string;
+  avatar: string;
+  avatarPublicId: string;
+  role: string;
+  isActive: boolean;
+  isAdmin: number;
+  emailVerified: boolean;
+  addresses: Array<{
+    street?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    isDefault?: boolean;
+  }>;
+  password: string;
+  totalOrders: number;
+  totalSpent: number;
+  lastOrderDate: string;
+  createdAt: string;
+  updatedAt: string;
+  lastLogin: string;
+}
+
+function buildSessionUserSnapshot(user: User): SessionUserSnapshot {
+  const userId =
+    user._id && typeof user._id === 'string' ? user._id : user._id?.toString() ?? '';
+
+  return {
+    _id: userId,
+    name: user.name ?? '',
+    email: user.email ?? '',
+    phone: user.phone ?? '',
+    bio: user.bio ?? '',
+    avatar: user.avatar ?? '',
+    avatarPublicId: user.avatarPublicId ?? '',
+    role: user.role ?? '',
+    isActive: user.isActive ?? false,
+    isAdmin: user.isAdmin ?? 0,
+    emailVerified: user.emailVerified ?? false,
+    addresses: user.addresses ?? [],
+    password: user.password ?? '',
+    totalOrders: user.totalOrders ?? 0,
+    totalSpent: user.totalSpent ?? 0,
+    lastOrderDate: user.lastOrderDate ?? '',
+    createdAt: user.createdAt ?? '',
+    updatedAt: user.updatedAt ?? '',
+    lastLogin: user.lastLogin ?? ''
+  };
+}
+
+async function createSession(db: Db, user: User) {
+  if (!user._id) {
+    throw new Error('User ID is required to create a session');
+  }
+
+  const userId =
+    typeof user._id === 'string' ? new ObjectId(user._id) : user._id;
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
+
+  await db.collection('sessions').insertOne({
+    token,
+    userId,
+    user: buildSessionUserSnapshot(user),
+    createdAt: new Date(),
+    expiresAt
+  });
+
+  return { token, expiresAt };
 }
 
 async function getSessionUser(req: NextRequest, db: Db) {
@@ -565,19 +646,38 @@ async function handleVerificationStep(body: Record<string, unknown>) {
   const insertResult = await db.collection('users').insertOne(user);
   await verificationCollection.deleteOne({ _id: pendingRecord._id });
 
-  const { password: _password, ...userWithoutPassword } = user;
+  const createdUser: User = { ...user, _id: insertResult.insertedId };
+  const session = await createSession(db, createdUser);
+
+  const authToken = await createAuthToken({
+    id: insertResult.insertedId.toString(),
+    email: createdUser.email,
+    name: createdUser.name,
+    role: createdUser.role,
+    isAdmin: createdUser.isAdmin ?? 0,
+    sessionToken: session.token
+  });
+
+  const { password: _password, ...userWithoutPassword } = createdUser;
   const responsePayload = {
     ...userWithoutPassword,
     _id: insertResult.insertedId.toString()
   };
 
-  return NextResponse.json(
+  const response = NextResponse.json(
     {
       message: 'Registration completed successfully',
       user: responsePayload
     },
     { status: 201 }
   );
+
+  response.cookies.set({
+    ...AUTH_COOKIE_OPTIONS,
+    value: authToken
+  });
+
+  return response;
 }
 
 // PUT update user (admin only)

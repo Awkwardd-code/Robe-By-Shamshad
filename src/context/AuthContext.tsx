@@ -4,13 +4,9 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState
 } from "react";
-
-
 
 export interface AuthUser {
   id: string;
@@ -28,40 +24,11 @@ interface AuthContextState {
   user: AuthUser | null;
   isLoading: boolean;
   error: string | null;
-  refreshUser: (force?: boolean) => Promise<void>;
+  refreshUser: (force?: boolean) => Promise<AuthUser | null>;
   setUser: (next: AuthUser | null) => void;
 }
 
 const AuthContext = createContext<AuthContextState | undefined>(undefined);
-
-async function requestCurrentUser(): Promise<AuthUser | null> {
-  try {
-    const response = await fetch("/api/auth/session", {
-      method: "GET",
-      cache: "no-store",
-      headers: {
-        "Content-Type": "application/json"
-      }
-    });
-
-    if (response.status === 401) {
-      return null;
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData?.error ?? "Unable to load profile");
-    }
-
-    const data = await response.json();
-    return data?.user ?? null;
-  } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("Unable to load profile");
-  }
-}
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -72,44 +39,15 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children, initialUser = null }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthUser | null>(initialUser);
-  const [isLoading, setIsLoading] = useState(!initialUser);
+  const [user, setUserState] = useState<AuthUser | null>(initialUser);
+  const [isLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isRefreshingRef = useRef(false);
 
-  const refreshUser = useCallback(
-    async (force = false) => {
-      if (isRefreshingRef.current || (!force && user === null && !isLoading)) {
-        return;
-      }
-      isRefreshingRef.current = true;
-      setIsLoading(true);
-      setError(null);
-      try {
-        const profile = await requestCurrentUser();
-        setUser(profile);
-      } catch (refreshError) {
-        const message =
-          refreshError instanceof Error
-            ? refreshError.message
-            : "Unable to refresh user session";
-        setError(message);
-        setUser(null);
-      } finally {
-        isRefreshingRef.current = false;
-        setIsLoading(false);
-      }
-    },
-    [user, isLoading]
-  );
+  const refreshUser = useCallback(async () => user, [user]);
 
-  useEffect(() => {
-    if (!initialUser) {
-      refreshUser();
-    } else {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const setUser = useCallback((next: AuthUser | null) => {
+    setError(null);
+    setUserState(next);
   }, []);
 
   const contextValue = useMemo<AuthContextState>(
@@ -120,7 +58,7 @@ export function AuthProvider({ children, initialUser = null }: AuthProviderProps
       refreshUser,
       setUser
     }),
-    [user, isLoading, error, refreshUser]
+    [user, isLoading, error, refreshUser, setUser]
   );
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;

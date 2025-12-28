@@ -12,12 +12,16 @@ export async function GET(
     const resolvedParams = await params;
     const { slug } = resolvedParams;
     const db = await connectToDatabase();
+    const looseSlugRegex = buildLooseSlugRegex(slug);
     
     // Try to find in products collection
     const productsCollection = db.collection('products');
     const productQuery = {
       $or: [
         { slug: { $regex: `^${escapeRegExp(slug)}$`, $options: 'i' } },
+        ...(looseSlugRegex ? [{ slug: looseSlugRegex }] : []),
+        { name: { $regex: `^${escapeRegExp(slug)}$`, $options: 'i' } },
+        ...(looseSlugRegex ? [{ name: looseSlugRegex }] : []),
         ...(ObjectId.isValid(slug) ? [{ _id: new ObjectId(slug) }] : [])
       ]
     };
@@ -39,6 +43,9 @@ export async function GET(
     const comboQuery = {
       $or: [
         { slug: { $regex: `^${escapeRegExp(slug)}$`, $options: 'i' } },
+        ...(looseSlugRegex ? [{ slug: looseSlugRegex }] : []),
+        { name: { $regex: `^${escapeRegExp(slug)}$`, $options: 'i' } },
+        ...(looseSlugRegex ? [{ name: looseSlugRegex }] : []),
         ...(ObjectId.isValid(slug) ? [{ _id: new ObjectId(slug) }] : [])
       ]
     };
@@ -73,7 +80,13 @@ export async function GET(
     // Try collections
     const collectionsCollection = db.collection('collections');
     const collection = await collectionsCollection.findOne({
-      slug: { $regex: `^${escapeRegExp(slug)}$`, $options: 'i' }
+      $or: [
+        { slug: { $regex: `^${escapeRegExp(slug)}$`, $options: 'i' } },
+        ...(looseSlugRegex ? [{ slug: looseSlugRegex }] : []),
+        { name: { $regex: `^${escapeRegExp(slug)}$`, $options: 'i' } },
+        { bannerTitle: { $regex: `^${escapeRegExp(slug)}$`, $options: 'i' } },
+        ...(looseSlugRegex ? [{ name: looseSlugRegex }, { bannerTitle: looseSlugRegex }] : [])
+      ]
     });
     
     if (collection) {
@@ -102,4 +115,14 @@ export async function GET(
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildLooseSlugRegex(value: string) {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!normalized) return null;
+  const pattern = normalized
+    .split("")
+    .map((char) => escapeRegExp(char))
+    .join("[^a-z0-9]*");
+  return new RegExp(`^${pattern}$`, "i");
 }

@@ -4,6 +4,7 @@ import ToastProvider from "@/components/ToastProvider";
 import { AuthProvider } from "@/context/AuthContext";
 import { CommerceProvider } from "@/context/CommerceContext";
 import { BuyNowProvider } from "@/context/BuyNowContext";
+import { getSessionUser } from "@/lib/server-session";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,7 +40,7 @@ export const metadata: Metadata = {
     siteName: "Robe by Shamshad",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/logo.jpg",
         width: 1200,
         height: 630,
         alt: "Robe by Shamshad",
@@ -54,19 +55,21 @@ export const metadata: Metadata = {
     title: "Robe by Shamshad || A Trusted Platform for Modern Clothing and Apparel",
     description:
       "Discover Robe by Shamshad, your go-to destination for trendy and high-quality clothing and apparel. Explore our diverse collection and elevate your style today.",
-    images: ["/og-image.jpg"],
+    images: ["/logo.jpg"],
   },  
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialUser = await getSessionUser();
+
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AuthProvider>
+        <AuthProvider initialUser={initialUser}>
           <CommerceProvider>
             <BuyNowProvider>
               {children}

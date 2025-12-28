@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,8 +10,6 @@ import { formatPriceToBdt } from "@/lib/currency";
 import { useCommerce } from "@/context/CommerceContext";
 import { useBuyNow } from "@/context/BuyNowContext";
 import {
-  ChevronLeft,
-  ChevronRight,
   X,
   Heart,
   Star,
@@ -27,7 +25,6 @@ import {
   Zap,
   ZoomIn,
   Move,
-  Scale,
 } from "lucide-react";
 
 interface DeliveryInfo {
@@ -42,17 +39,11 @@ type NormalizedDelivery = {
   message: string;
 };
 
-/**
- * UI shape for gallery items (we wrap backend string[] gallery into this)
- */
 export interface ComboGalleryItem {
   src: string;
   alt: string;
 }
 
-/**
- * Combo offer interface including backend fields + UI fields
- */
 export interface ComboOffer {
   id: string;
   _id?: string;
@@ -135,6 +126,18 @@ export interface ComboOffer {
   deliveryCharge?: number;
 }
 
+type ComboReview = {
+  id: string;
+  comboId: string;
+  name: string;
+  email?: string;
+  rating: number;
+  title?: string;
+  comment: string;
+  source?: string;
+  createdAt: string;
+};
+
 // Normalize image paths
 function getImagePath(imagePath?: string) {
   if (!imagePath) return "/images/combo-placeholder.jpg";
@@ -159,22 +162,23 @@ const calculateSavings = (combo: ComboOffer) => {
   return combo.pricing.originalTotal - combo.pricing.discountedPrice;
 };
 
-// Get status badge color
-const getStatusColor = (status: string, isActive: boolean) => {
-  if (status === "sold_out") return "bg-red-100 text-red-800 border-red-200";
-  if (isActive && status === "active")
-    return "bg-green-100 text-green-800 border-green-200";
-  return "bg-gray-100 text-gray-800 border-gray-200";
+// Badge styles (slightly richer but same logic)
+const getStatusPill = (status: string, isActive: boolean) => {
+  if (status === "sold_out") {
+    return "bg-rose-50 text-rose-700 ring-1 ring-rose-200";
+  }
+  if (isActive && status === "active") {
+    return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
+  }
+  return "bg-slate-50 text-slate-700 ring-1 ring-slate-200";
 };
 
-// Get status text
 const getStatusText = (status: string, isActive: boolean) => {
   if (status === "sold_out") return "Sold Out";
   if (isActive && status === "active") return "Active";
   return "Inactive";
 };
 
-// Format date
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
@@ -184,7 +188,6 @@ const formatDate = (dateString: string) => {
   });
 };
 
-// Calculate days remaining
 const calculateDaysRemaining = (endDate: string) => {
   const end = new Date(endDate);
   const now = new Date();
@@ -222,11 +225,50 @@ const normalizeDeliveryData = (
   };
 };
 
-const resolveDeliveryCharge = (delivery?: NormalizedDelivery): number | undefined => {
+const resolveDeliveryCharge = (
+  delivery?: NormalizedDelivery
+): number | undefined => {
   if (!delivery) return undefined;
   const chargeValue = delivery.charge ?? 0;
   return delivery.isFree ? 0 : chargeValue;
 };
+
+const formatReviewDate = (value?: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+function RelatedCombosSkeleton() {
+  return (
+    <div className="mt-20 animate-pulse">
+      <div className="text-center mb-12">
+        <div className="h-8 w-64 bg-slate-200 rounded mx-auto" />
+        <div className="h-4 w-96 bg-slate-200 rounded mx-auto mt-4" />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={`related-combo-skel-${index}`} className="space-y-3">
+            <div className="relative overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200 shadow-sm">
+              <div className="aspect-square flex items-center justify-center">
+                <div className="h-24 w-24 bg-slate-200 rounded" />
+              </div>
+            </div>
+            <div className="h-4 w-4/5 bg-slate-200 rounded" />
+            <div className="h-3 w-2/3 bg-slate-200 rounded" />
+            <div className="h-3 w-1/3 bg-slate-200 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function ComboOfferDetail({
   comboOffer,
@@ -242,10 +284,12 @@ export default function ComboOfferDetail({
   } = useCommerce();
   const { registerComboSelection } = useBuyNow();
   const router = useRouter();
+
   const [qty, setQty] = useState(1);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [relatedCombos, setRelatedCombos] = useState<ComboOffer[]>([]);
+  const [isLoadingRelated, setIsLoadingRelated] = useState(true);
   const [showZoom, setShowZoom] = useState(false);
   const [showZoomPanel, setShowZoomPanel] = useState(false);
   const [isZoomActive, setIsZoomActive] = useState(false);
@@ -254,15 +298,33 @@ export default function ComboOfferDetail({
   const [isPinching, setIsPinching] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
   const [zoomScale, setZoomScale] = useState(2);
-  const [tab, setTab] = useState<"description" | "products" | "details">(
+  const [tab, setTab] = useState<"description" | "products" | "details" | "reviews">(
     "description"
   );
+  const [reviewForm, setReviewForm] = useState({
+    name: "",
+    email: "",
+    rating: 5,
+    title: "",
+    comment: "",
+  });
+  const [reviews, setReviews] = useState<ComboReview[]>([]);
+  const [reviewStats, setReviewStats] = useState({
+    averageRating: 0,
+    totalReviews: 0,
+  });
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
   const imageRef = useRef<HTMLDivElement>(null);
   const zoomTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const cartProduct = useMemo(() => {
     const currency = comboOffer.pricing?.currency || "BDT";
     const normalizedDelivery = normalizeDeliveryData(comboOffer.delivery, currency);
     return {
+      ...comboOffer,
       id: comboOffer.id,
       name: comboOffer.name,
       price: comboOffer.pricing.discountedPrice,
@@ -277,14 +339,17 @@ export default function ComboOfferDetail({
       deliveryCharge: normalizedDelivery?.charge,
     };
   }, [comboOffer]);
+
   const remainingStock =
     comboOffer.inventory.totalStock - comboOffer.inventory.soldCount;
   const inStock =
     remainingStock > 0 && comboOffer.inventory.status === "active";
   const isActive = comboOffer.validity.isActive;
   const maxQty = inStock ? remainingStock : 1;
+
   const comboIsInCart = isInCart(cartProduct.id);
   const comboButtonDisabled = !inStock || !isActive || comboIsInCart;
+
   const comboButtonLabel = !isActive
     ? "Offer Expired"
     : !inStock
@@ -292,22 +357,12 @@ export default function ComboOfferDetail({
     : comboIsInCart
     ? "In Cart"
     : "Add Combo to Cart";
-  const comboButtonClass = `group cursor-pointer flex-1 flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-300 transform hover:scale-105 ${
-    comboButtonDisabled
-      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-      : "bg-linear-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 shadow-lg hover:shadow-xl"
-  }`;
 
   // Safe settings + analytics defaults
   const settings = comboOffer.settings ?? {
     isPublished: true,
     isFeatured: false,
     priority: 0,
-  };
-  const analytics = comboOffer.analytics ?? {
-    views: 0,
-    clicks: 0,
-    conversions: 0,
   };
 
   const gallery = useMemo(
@@ -330,14 +385,22 @@ export default function ComboOfferDetail({
 
   const currentImage = gallery[safeIndex] ?? gallery[0];
   const ratingValue = Number(comboOffer.rating ?? 0);
-  const roundedRating = Math.round(ratingValue);
-  const ratingLabel = ratingValue ? ratingValue.toFixed(1) : "0.0";
   const reviewsLabel = comboOffer.reviewsCount ?? 0;
+  const displayReviewAverage =
+    reviewStats.totalReviews > 0 ? reviewStats.averageRating : ratingValue;
+  const displayReviewCount =
+    reviewStats.totalReviews > 0 ? reviewStats.totalReviews : reviewsLabel;
+  const displayReviewLabel = displayReviewAverage
+    ? displayReviewAverage.toFixed(1)
+    : "0.0";
+  const displayReviewRounded = Math.round(displayReviewAverage);
   const savings = calculateSavings(comboOffer);
   const daysRemaining = calculateDaysRemaining(comboOffer.validity.endDate);
   const statusText = getStatusText(comboOffer.inventory.status, isActive);
-  const statusColor = getStatusColor(comboOffer.inventory.status, isActive);
+  const statusPill = getStatusPill(comboOffer.inventory.status, isActive);
+
   const displayQty = Math.min(qty, maxQty);
+
   const handleBuyNow = () => {
     if (!inStock || !isActive) return;
     registerComboSelection(
@@ -351,9 +414,110 @@ export default function ComboOfferDetail({
     router.push("/checkout");
   };
 
+  const fetchReviews = useCallback(async () => {
+    if (!comboOffer.id) return;
+    setIsLoadingReviews(true);
+    setReviewError(null);
+    try {
+      const res = await fetch(
+        `/api/reviews?comboId=${encodeURIComponent(comboOffer.id)}`
+      );
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload?.error || "Failed to load reviews");
+      }
+      const incomingReviews = Array.isArray(payload?.reviews)
+        ? payload.reviews
+        : [];
+      const stats = payload?.stats ?? {};
+
+      setReviews(incomingReviews);
+      setReviewStats({
+        averageRating: Number(stats.averageRating ?? 0),
+        totalReviews: Number(stats.totalReviews ?? incomingReviews.length ?? 0),
+      });
+    } catch (error) {
+      setReviewError(
+        error instanceof Error ? error.message : "Failed to load reviews"
+      );
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  }, [comboOffer.id]);
+
+  const handleReviewSubmit = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+    if (!comboOffer.id) return;
+
+    const nameValue = reviewForm.name.trim();
+    const commentValue = reviewForm.comment.trim();
+
+    if (!nameValue || !commentValue) {
+      setReviewError("Please add your name and review.");
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    setReviewError(null);
+
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          comboId: comboOffer.id,
+          name: nameValue,
+          email: reviewForm.email.trim() || undefined,
+          rating: reviewForm.rating,
+          title: reviewForm.title.trim() || undefined,
+          comment: commentValue,
+          source: "combo_offer",
+        }),
+      });
+
+      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(payload?.error || "Failed to submit review");
+      }
+
+      setReviewForm({
+        name: "",
+        email: "",
+        rating: 5,
+        title: "",
+        comment: "",
+      });
+
+      const stats = payload?.stats ?? {};
+      setReviewStats({
+        averageRating: Number(stats.averageRating ?? 0),
+        totalReviews: Number(stats.totalReviews ?? 0),
+      });
+
+      await fetchReviews();
+    } catch (error) {
+      setReviewError(
+        error instanceof Error ? error.message : "Failed to submit review"
+      );
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab !== "reviews") return;
+    if (!comboOffer.id) return;
+    void fetchReviews();
+  }, [tab, comboOffer.id, fetchReviews]);
+
   // Fetch related combo offers
   useEffect(() => {
+    let isMounted = true;
     const fetchRelatedCombos = async () => {
+      setIsLoadingRelated(true);
+      setRelatedCombos([]);
       try {
         const response = await fetch("/api/combo-offers?limit=8");
         if (response.ok) {
@@ -373,11 +537,9 @@ export default function ComboOfferDetail({
                         alt: `${combo.name} combo`,
                       },
                     ];
+
               const currency = combo.pricing?.currency || "BDT";
-              const deliveryData = normalizeDeliveryData(
-                combo.delivery,
-                currency
-              );
+              const deliveryData = normalizeDeliveryData(combo.delivery, currency);
               const deliveryCharge = resolveDeliveryCharge(deliveryData);
 
               return {
@@ -419,31 +581,30 @@ export default function ComboOfferDetail({
           const filtered = transformedCombos
             .filter((c) => c.id !== comboOffer.id)
             .slice(0, 4);
-          setRelatedCombos(filtered);
+
+          if (isMounted) setRelatedCombos(filtered);
         }
       } catch (error) {
         console.error("Error fetching related combos:", error);
+      } finally {
+        if (isMounted) setIsLoadingRelated(false);
       }
     };
 
     fetchRelatedCombos();
+    return () => {
+      isMounted = false;
+    };
   }, [comboOffer.id]);
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      setActiveIndex(0);
-    });
-
+    const frame = requestAnimationFrame(() => setActiveIndex(0));
     return () => cancelAnimationFrame(frame);
   }, [comboOffer.id]);
 
   useEffect(() => {
     if (activeIndex === safeIndex) return;
-
-    const frame = requestAnimationFrame(() => {
-      setActiveIndex(safeIndex);
-    });
-
+    const frame = requestAnimationFrame(() => setActiveIndex(safeIndex));
     return () => cancelAnimationFrame(frame);
   }, [activeIndex, safeIndex]);
 
@@ -454,15 +615,12 @@ export default function ComboOfferDetail({
         return Math.min(Math.max(q, 1), maxQty);
       });
     });
-
     return () => cancelAnimationFrame(frame);
   }, [inStock, maxQty]);
 
   // Close share menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => {
-      setShowShareMenu(false);
-    };
+    const handleClickOutside = () => setShowShareMenu(false);
 
     if (showShareMenu) {
       document.addEventListener("click", handleClickOutside);
@@ -473,42 +631,29 @@ export default function ComboOfferDetail({
   // Cleanup zoom timer on unmount
   useEffect(() => {
     return () => {
-      if (zoomTimerRef.current) {
-        clearTimeout(zoomTimerRef.current);
-      }
+      if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
     };
   }, []);
 
-  const updateZoomPosition = (
-    clientX: number,
-    clientY: number,
-    rect: DOMRect
-  ) => {
+  const updateZoomPosition = (clientX: number, clientY: number, rect: DOMRect) => {
     const x = ((clientX - rect.left) / rect.width) * 100;
     const y = ((clientY - rect.top) / rect.height) * 100;
     setZoomPosition({ x, y });
   };
 
-  // Handle mouse move for zoom effect
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!showZoom || !imageRef.current) return;
-
     const rect = imageRef.current.getBoundingClientRect();
     updateZoomPosition(e.clientX, e.clientY, rect);
   };
 
-  // Handle mouse enter/leave for zoom
   const handleMouseEnter = () => {
-    if (zoomTimerRef.current) {
-      clearTimeout(zoomTimerRef.current);
-    }
+    if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current);
     setShowZoom(true);
   };
 
   const handleMouseLeave = () => {
-    zoomTimerRef.current = setTimeout(() => {
-      setShowZoom(false);
-    }, 100);
+    zoomTimerRef.current = setTimeout(() => setShowZoom(false), 100);
   };
 
   const handleImageTap = () => {
@@ -525,7 +670,6 @@ export default function ComboOfferDetail({
     }
   };
 
-  // Mobile touch gesture handlers
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!imageRef.current) return;
 
@@ -584,17 +728,12 @@ export default function ComboOfferDetail({
 
   const handleTouchEnd = () => {
     setIsPinching(false);
-
-    if (!isZoomActive) {
-      handleImageTap();
-    }
+    if (!isZoomActive) handleImageTap();
   };
 
   const toggleZoomPanel = () => {
     setShowZoomPanel((prev) => !prev);
-    if (!showZoomPanel) {
-      setIsZoomActive(true);
-    }
+    if (!showZoomPanel) setIsZoomActive(true);
   };
 
   const closeZoomPanel = () => {
@@ -603,21 +742,66 @@ export default function ComboOfferDetail({
     setZoomScale(2);
   };
 
+  // -----------------------------
+  // Style tokens (Tailwind only)
+  // -----------------------------
+  const pageBg =
+    "min-h-screen bg-gradient-to-br from-amber-50 via-white to-rose-50 text-slate-900";
+  const container = "mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8";
+  const card =
+    "rounded-2xl bg-white/80 backdrop-blur-md ring-1 ring-slate-200/70 shadow-[0_10px_30px_-18px_rgba(2,6,23,0.35)]";
+  const softCard =
+    "rounded-2xl bg-linear-to-br from-white to-slate-50 ring-1 ring-slate-200/70 shadow-sm";
+  const subtleText = "text-slate-600";
+  const heading = "font-extrabold tracking-tight text-slate-900";
+  const pillBase =
+    "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold";
+  const brandPill =
+    "bg-linear-to-r from-amber-100 to-rose-100 text-rose-800 ring-1 ring-rose-200/70";
+  const infoPill =
+    "bg-sky-50 text-sky-700 ring-1 ring-sky-200/70";
+  const neutralPill =
+    "bg-slate-50 text-slate-700 ring-1 ring-slate-200/70";
+
+  const iconBtnBase =
+    "group relative grid place-items-center h-10 w-10 rounded-xl ring-1 transition-all duration-200 active:scale-95";
+  const iconBtn =
+    "bg-white/90 ring-slate-200 text-slate-700 hover:bg-white hover:shadow-md";
+  const iconBtnOn =
+    "bg-rose-50 ring-rose-200 text-rose-700 hover:bg-rose-100 hover:shadow-md";
+
+  const primaryBtnBase =
+    "group inline-flex items-center justify-center gap-2 rounded-none px-6 py-3 text-sm font-bold tracking-wide transition-all duration-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60";
+  const primaryBtn =
+    "bg-slate-100 text-[#944C35] shadow-sm hover:bg-slate-200";
+  const primaryBtnDisabled =
+    "bg-slate-200 text-slate-400 shadow-none";
+
+  const secondaryBtn =
+    "bg-slate-100 text-black hover:bg-slate-200";
+
+  const tabBase =
+    "cursor-pointer rounded-none px-6 py-3 text-sm font-extrabold text-[#944C35] transition-all duration-200";
+  const tabOn =
+    "bg-white shadow-md";
+  const tabOff =
+    "text-[#944C35] hover:bg-white/60";
+
   return (
-    <div className="min-h-screen bg-linear-to-br from-orange-50 to-white">
-      <div className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className={pageBg}>
+      <div className={container}>
         {/* Breadcrumb */}
         <nav className="mb-6" aria-label="Breadcrumb">
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <Link href="/" className="hover:text-gray-700">
+          <div className="flex items-center space-x-2 text-sm text-slate-500">
+            <Link href="/" className="hover:text-slate-900 transition-colors">
               Home
             </Link>
-            <span>/</span>
-            <Link href="/combo-offers" className="hover:text-gray-700">
+            <span className="text-slate-300">/</span>
+            <Link href="/combo-offers" className="hover:text-slate-900 transition-colors">
               Combo Offers
             </Link>
-            <span>/</span>
-            <span className="text-gray-900">{comboOffer.name}</span>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-900 font-semibold">{comboOffer.name}</span>
           </div>
         </nav>
 
@@ -627,7 +811,11 @@ export default function ComboOfferDetail({
             <div className="relative">
               <div
                 ref={imageRef}
-                className="aspect-square overflow-hidden rounded-lg bg-linear-to-br from-orange-100 to-red-100 relative cursor-pointer"
+                className={[
+                  "aspect-square overflow-hidden rounded-2xl relative cursor-pointer",
+                  "bg-linear-to-br from-amber-100 via-orange-100 to-rose-100",
+                  "ring-1 ring-slate-200 shadow-lg shadow-orange-100/60",
+                ].join(" ")}
                 onClick={handleImageTap}
                 onMouseMove={handleMouseMove}
                 onMouseEnter={handleMouseEnter}
@@ -639,16 +827,16 @@ export default function ComboOfferDetail({
               >
                 {/* Status Badge */}
                 <div className="absolute top-4 left-4 z-10">
-                  <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide border ${statusColor}`}
-                  >
+                  <span className={`${pillBase} ${statusPill}`}>
                     {statusText}
                   </span>
                 </div>
 
                 {/* Discount Badge */}
                 <div className="absolute top-4 right-4 z-10">
-                  <span className="rounded-full bg-linear-to-r from-orange-500 to-red-500 px-3 py-1 text-xs font-bold text-white shadow-sm">
+                  <span
+                    className={`${pillBase} bg-linear-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-sm`}
+                  >
                     {comboOffer.pricing.discountPercentage}% OFF
                   </span>
                 </div>
@@ -656,39 +844,41 @@ export default function ComboOfferDetail({
                 <Image
                   src={currentImage?.src ?? comboOffer.thumbnail}
                   alt={currentImage?.alt ?? comboOffer.name}
-                  width={600}
-                  height={600}
+                  width={900}
+                  height={900}
                   className="h-full w-full object-cover"
                   priority
                 />
 
                 {/* Zoom Indicator */}
-                  {isZoomActive && (
-                    <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 bg-black/70 text-white px-3 py-1.5 rounded-full text-xs lg:hidden">
-                      <ZoomIn className="w-3 h-3" />
-                      <span>Zoom Active - Tap to adjust</span>
-                    </div>
-                  )}
+                {isZoomActive && (
+                  <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 bg-slate-900/75 text-white px-3 py-1.5 rounded-full text-xs lg:hidden">
+                    <ZoomIn className="w-3 h-3" />
+                    <span className="font-semibold">Zoom Active • Tap to adjust</span>
+                  </div>
+                )}
 
                 {/* Zoom Toggle Button */}
-                  <button
-                    onClick={toggleZoomPanel}
-                    className="absolute bottom-4 right-4 z-10 p-2 bg-white/80 backdrop-blur-sm rounded-lg shadow-md hover:bg-white transition-colors lg:hidden"
-                    title={showZoomPanel ? "Hide Zoom" : "Show Zoom"}
-                  >
-                    <ZoomIn className={`w-5 h-5 ${isZoomActive ? "text-orange-500" : "text-gray-700"}`} />
-                  </button>
-                </div>
+                <button
+                  onClick={toggleZoomPanel}
+                  className="absolute bottom-4 right-4 z-10 p-2 bg-white/90 backdrop-blur-sm rounded-xl ring-1 ring-slate-200 shadow-md hover:shadow-lg hover:bg-white transition-all lg:hidden active:scale-95"
+                  title={showZoomPanel ? "Hide Zoom" : "Show Zoom"}
+                >
+                  <ZoomIn
+                    className={`w-5 h-5 ${
+                      isZoomActive ? "text-orange-600" : "text-slate-700"
+                    }`}
+                  />
+                </button>
+              </div>
 
               {/* Zoom Preview Overlay */}
               {showZoom && !isZoomActive && (
-                <div className="absolute left-[calc(100%+1rem)] top-0 w-full h-full bg-white rounded-lg shadow-2xl overflow-hidden border border-gray-200 z-20 hidden lg:block">
+                <div className="absolute left-[calc(100%+1rem)] top-0 w-full h-full bg-white rounded-2xl shadow-2xl overflow-hidden ring-1 ring-slate-200 z-20 hidden lg:block">
                   <div
                     className="w-full h-full"
                     style={{
-                      backgroundImage: `url(${
-                        currentImage?.src ?? comboOffer.thumbnail
-                      })`,
+                      backgroundImage: `url(${currentImage?.src ?? comboOffer.thumbnail})`,
                       backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
                       backgroundSize: `${zoomScale * 100}%`,
                       backgroundRepeat: "no-repeat",
@@ -696,21 +886,17 @@ export default function ComboOfferDetail({
                   />
                   <div className="absolute top-4 right-4 flex gap-2">
                     <button
-                      onClick={() =>
-                        setZoomScale((prev) => Math.max(1.5, prev - 0.5))
-                      }
-                      className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-md text-sm font-medium hover:bg-white"
+                      onClick={() => setZoomScale((prev) => Math.max(1.5, prev - 0.5))}
+                      className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-lg text-sm font-bold ring-1 ring-slate-200 hover:bg-white active:scale-95"
                     >
-                      -
+                      −
                     </button>
-                    <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-md text-sm font-medium">
+                    <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-lg text-sm font-extrabold ring-1 ring-slate-200">
                       {zoomScale.toFixed(1)}x
                     </span>
                     <button
-                      onClick={() =>
-                        setZoomScale((prev) => Math.min(4, prev + 0.5))
-                      }
-                      className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-md text-sm font-medium hover:bg-white"
+                      onClick={() => setZoomScale((prev) => Math.min(4, prev + 0.5))}
+                      className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-lg text-sm font-bold ring-1 ring-slate-200 hover:bg-white active:scale-95"
                     >
                       +
                     </button>
@@ -726,11 +912,12 @@ export default function ComboOfferDetail({
                     key={g.src}
                     type="button"
                     onClick={() => setActiveIndex(i)}
-                    className={`relative h-16 w-16 overflow-hidden rounded-md border-2 transition-all duration-200 ${
+                    className={[
+                      "relative h-16 w-16 overflow-hidden rounded-xl border-2 transition-all duration-200",
                       i === safeIndex
-                        ? "border-orange-500"
-                        : "border-gray-200 hover:border-gray-400"
-                    }`}
+                        ? "border-orange-500 shadow-md"
+                        : "border-slate-200 hover:border-slate-400",
+                    ].join(" ")}
                   >
                     <Image
                       src={g.src}
@@ -743,26 +930,26 @@ export default function ComboOfferDetail({
                 ))}
               </div>
             )}
-            
+
             {/* Zoom Panel for Mobile */}
             {showZoomPanel && (
-              <div className="mt-6 p-4 bg-linear-to-br from-gray-50 to-white rounded-xl border border-gray-200 shadow-sm lg:hidden">
+              <div className={`${softCard} mt-6 p-4 lg:hidden`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <ZoomIn className="w-5 h-5 text-orange-500" />
-                    <h3 className="font-semibold text-gray-900">Image Zoom</h3>
+                    <ZoomIn className="w-5 h-5 text-orange-600" />
+                    <h3 className="font-extrabold text-slate-900">Image Zoom</h3>
                   </div>
                   <button
                     onClick={closeZoomPanel}
-                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-2 hover:bg-slate-100 rounded-full transition-colors active:scale-95"
                     title="Close Zoom"
                   >
-                    <X className="w-4 h-4 text-gray-500" />
+                    <X className="w-4 h-4 text-slate-500" />
                   </button>
                 </div>
 
                 <div className="mb-4">
-                  <div className="relative aspect-square w-full max-w-md mx-auto overflow-hidden rounded-lg bg-gray-100">
+                  <div className="relative aspect-square w-full max-w-md mx-auto overflow-hidden rounded-2xl bg-slate-100 ring-1 ring-slate-200">
                     <div
                       className="w-full h-full"
                       style={{
@@ -777,30 +964,32 @@ export default function ComboOfferDetail({
                       onTouchEnd={handleTouchEnd}
                     />
                   </div>
-                  <div className="mt-2 text-center text-xs text-gray-500 flex items-center justify-center gap-2">
+                  <div className="mt-2 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
                     <Move className="w-3 h-3" />
-                    <span>Pinch to zoom - Drag to pan</span>
+                    <span className="font-semibold">Pinch to zoom • Drag to pan</span>
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Zoom Level</span>
-                    <span className="text-lg font-bold text-orange-600">{zoomScale.toFixed(1)}x</span>
+                    <span className="text-sm font-bold text-slate-700">Zoom Level</span>
+                    <span className="text-lg font-extrabold text-orange-700">
+                      {zoomScale.toFixed(1)}x
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setZoomScale(Math.min(zoomScale + 0.5, 4))}
-                      className="px-3 py-1 rounded-full border border-gray-200 text-sm transition hover:bg-gray-100"
+                      className="px-4 py-2 rounded-full ring-1 ring-slate-200 text-sm font-extrabold hover:bg-slate-100 active:scale-95"
                     >
                       +
                     </button>
                     <button
                       onClick={() => setZoomScale(Math.max(zoomScale - 0.5, 1))}
-                      className="px-3 py-1 rounded-full border border-gray-200 text-sm transition hover:bg-gray-100"
+                      className="px-4 py-2 rounded-full ring-1 ring-slate-200 text-sm font-extrabold hover:bg-slate-100 active:scale-95"
                     >
-                      -
+                      −
                     </button>
                   </div>
                 </div>
@@ -808,100 +997,98 @@ export default function ComboOfferDetail({
             )}
           </div>
 
-          {/* Product Details or Zoom View */}
+          {/* Details / Zoom Info */}
           <div className="relative">
             {showZoom ? (
-              /* Zoom View */
-              <div className="space-y-3 flex flex-col items-center justify-center min-h-75">
+              <div className={`${card} p-8 space-y-4 flex flex-col items-center justify-center min-h-75`}>
                 <div className="text-center max-w-sm">
-                  <ZoomIn className="w-10 h-10 mx-auto text-orange-500 mb-3" />
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  <ZoomIn className="w-10 h-10 mx-auto text-orange-600 mb-3" />
+                  <h3 className="text-xl font-extrabold text-slate-900 mb-2">
                     Image Zoom Active
                   </h3>
-                  <p className="text-gray-600 text-sm mb-4">
+                  <p className="text-slate-600 text-sm mb-4">
                     Move your cursor over the image to zoom. Use +/- buttons to
                     adjust zoom level.
                   </p>
-                  <div className="flex items-center justify-center gap-3 mb-4">
+                  <div className="flex items-center justify-center gap-3 mb-5">
                     <div className="text-center">
-                      <div className="text-lg font-bold text-orange-600">
+                      <div className="text-lg font-extrabold text-orange-700">
                         {zoomScale.toFixed(1)}x
                       </div>
-                      <div className="text-xs text-gray-500">Zoom Level</div>
+                      <div className="text-xs text-slate-500 font-semibold">Zoom Level</div>
                     </div>
                   </div>
                   <button
                     onClick={() => setShowZoom(false)}
-                    className="px-3 py-1.5 bg-orange-500 text-white font-medium rounded-md hover:bg-orange-600 transition-colors text-sm"
+                    className="px-4 py-2 bg-orange-600 text-white font-extrabold rounded-xl hover:bg-orange-700 transition-colors active:scale-95"
                   >
                     Close Zoom
                   </button>
                 </div>
               </div>
             ) : (
-              /* Combo Details Content */
-              <div className="space-y-6">
+              <div className={`${card} p-6 sm:p-8 space-y-6`}>
                 {/* Header */}
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <div className="flex flex-wrap items-center gap-3 mb-3">
-                      <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-orange-700">
-                        <Gift className="w-3 h-3 mr-1" />
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      <span className={`${pillBase} ${brandPill}`}>
+                        <Gift className="w-3 h-3" />
                         Combo Offer
                       </span>
-                      <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                        <Layers className="w-3 h-3 mr-1" />
+                      <span className={`${pillBase} ${infoPill}`}>
+                        <Layers className="w-3 h-3" />
                         {comboOffer.products.length} Products
                       </span>
                       {comboOffer.category && (
-                        <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                          Category: {comboOffer.category}
+                        <span className={`${pillBase} ${neutralPill}`}>
+                          Category: <span className="font-extrabold">{comboOffer.category}</span>
                         </span>
                       )}
                     </div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+
+                    <h1 className={`text-3xl sm:text-4xl ${heading} mb-2`}>
                       {comboOffer.name}
                     </h1>
-                    <div className="flex flex-wrap items-center gap-3 mb-4">
+
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
                       <div className="flex items-center gap-1">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star
                             key={i}
                             className={`w-5 h-5 ${
-                              i < roundedRating
+                              i < displayReviewRounded
                                 ? "fill-amber-400 text-amber-400"
-                                : "text-gray-300"
+                                : "text-slate-300"
                             }`}
                           />
                         ))}
                       </div>
-                      <span className="text-sm text-gray-600">
-                        {ratingLabel} ({reviewsLabel} reviews)
+                      <span className="text-sm text-slate-600 font-semibold">
+                        {displayReviewLabel} ({displayReviewCount} reviews)
                       </span>
                       <span
-                        className={`text-sm font-medium ${
-                          inStock ? "text-green-600" : "text-red-500"
+                        className={`text-sm font-extrabold ${
+                          inStock ? "text-emerald-700" : "text-rose-700"
                         }`}
                       >
-                        {inStock
-                          ? `${remainingStock} available`
-                          : "Out of stock"}
+                        {inStock ? `${remainingStock} available` : "Out of stock"}
                       </span>
                     </div>
-                    <p className="text-gray-600 mb-4">
+
+                    <p className="text-slate-600 leading-relaxed">
                       {comboOffer.description}
                     </p>
 
                     {/* Validity */}
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 mb-4">
-                      <Calendar className="w-4 h-4" />
-                      <span>
-                        Valid from{" "}
-                        {formatDate(comboOffer.validity.startDate)} to{" "}
+                    <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                      <Calendar className="w-4 h-4 text-slate-500" />
+                      <span className="font-semibold">
+                        Valid from {formatDate(comboOffer.validity.startDate)} to{" "}
                         {formatDate(comboOffer.validity.endDate)}
                       </span>
                       {daysRemaining > 0 && (
-                        <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full">
+                        <span className={`${pillBase} bg-orange-50 text-orange-700 ring-1 ring-orange-200/70`}>
                           {daysRemaining} days left
                         </span>
                       )}
@@ -909,19 +1096,17 @@ export default function ComboOfferDetail({
 
                     {/* Features */}
                     {comboOffer.features?.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {comboOffer.features
-                          .slice(0, 3)
-                          .map((feature, index) => (
-                            <span
-                              key={index}
-                              className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-700"
-                            >
-                              {feature}
-                            </span>
-                          ))}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {comboOffer.features.slice(0, 3).map((feature, index) => (
+                          <span
+                            key={index}
+                            className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200"
+                          >
+                            {feature}
+                          </span>
+                        ))}
                         {comboOffer.features.length > 3 && (
-                          <span className="rounded-full bg-gray-50 px-3 py-1 text-xs text-gray-500">
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-500 ring-1 ring-slate-200">
                             +{comboOffer.features.length - 3} more
                           </span>
                         )}
@@ -930,13 +1115,11 @@ export default function ComboOfferDetail({
                   </div>
 
                   {/* Wishlist & Share */}
-                  <div className="flex items-center gap-2 ml-3">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => toggleWishlist(cartProduct)}
-                      className={`group relative p-2 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-md hover:shadow-lg ${
-                        isInWishlist(comboOffer.id)
-                          ? "bg-red-50 border-red-200 text-red-600 hover:bg-red-100"
-                          : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                      className={`${iconBtnBase} ${
+                        isInWishlist(comboOffer.id) ? iconBtnOn : iconBtn
                       }`}
                       title={
                         isInWishlist(comboOffer.id)
@@ -945,9 +1128,9 @@ export default function ComboOfferDetail({
                       }
                     >
                       <Heart
-                        className={`w-5 h-5 transition-all duration-300 ${
+                        className={`w-5 h-5 transition-transform duration-200 ${
                           isInWishlist(comboOffer.id)
-                            ? "fill-current scale-110"
+                            ? "fill-current"
                             : "group-hover:scale-110"
                         }`}
                       />
@@ -959,30 +1142,23 @@ export default function ComboOfferDetail({
                           e.stopPropagation();
                           setShowShareMenu(!showShareMenu);
                         }}
-                        className="group relative p-2 rounded-xl border-2 bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-md hover:shadow-lg"
+                        className={`${iconBtnBase} ${iconBtn}`}
                         title="Share combo offer"
                       >
-                        <Share2 className="w-5 h-5 transition-transform duration-300 group-hover:scale-110" />
+                        <Share2 className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
                       </button>
 
                       {showShareMenu && (
-                        <div className="absolute right-0 top-12 bg-white border-2 border-gray-100 rounded-2xl shadow-2xl p-3 z-20 min-w-40 transform transition-all duration-200 scale-100 opacity-100">
+                        <div className="absolute right-0 top-12 bg-white rounded-2xl shadow-2xl p-2 z-20 min-w-44 ring-1 ring-slate-200">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigator.clipboard.writeText(
-                                window.location.href
-                              );
+                              navigator.clipboard.writeText(window.location.href);
                               setShowShareMenu(false);
                             }}
-                            className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-gray-50 rounded-xl transition-colors duration-200 flex items-center gap-3"
+                            className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 rounded-xl transition-colors duration-200 flex items-center gap-3"
                           >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -992,29 +1168,20 @@ export default function ComboOfferDetail({
                             </svg>
                             Copy Link
                           </button>
+
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               window.open(
                                 `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-                                  `Check out this combo offer: ${
-                                    comboOffer.name
-                                  } - Save ${
-                                    comboOffer.pricing.discountPercentage
-                                  }%!`
-                                )}&url=${encodeURIComponent(
-                                  window.location.href
-                                )}`
+                                  `Check out this combo offer: ${comboOffer.name} - Save ${comboOffer.pricing.discountPercentage}%!`
+                                )}&url=${encodeURIComponent(window.location.href)}`
                               );
                               setShowShareMenu(false);
                             }}
-                            className="w-full text-left px-4 py-3 text-sm font-medium hover:bg-gray-50 rounded-xl transition-colors duration-200 flex items-center gap-3"
+                            className="w-full text-left px-4 py-3 text-sm font-bold hover:bg-slate-50 rounded-xl transition-colors duration-200 flex items-center gap-3"
                           >
-                            <svg
-                              className="w-4 h-4"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                             </svg>
                             Share on X
@@ -1026,43 +1193,45 @@ export default function ComboOfferDetail({
                 </div>
 
                 {/* Pricing & Savings */}
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="text-3xl font-bold text-gray-900">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="text-3xl font-extrabold text-slate-900">
                       {formatCurrency(comboOffer.pricing.discountedPrice)}
                     </div>
-                    <div className="text-lg text-gray-500 line-through">
+                    <div className="text-lg font-bold text-slate-400 line-through">
                       {formatCurrency(comboOffer.pricing.originalTotal)}
                     </div>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-linear-to-r from-orange-100 to-red-100 text-orange-700 font-semibold">
+                    <div className={`${pillBase} bg-linear-to-r from-amber-100 to-rose-100 text-rose-800 ring-1 ring-rose-200/70`}>
                       <Percent className="w-4 h-4" />
                       Save {comboOffer.pricing.discountPercentage}%
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-green-600">
+
+                  <div className="flex items-center gap-2 text-emerald-700">
                     <Zap className="w-4 h-4" />
-                    <span className="font-medium">
+                    <span className="font-bold">
                       You save {formatCurrency(savings)} on this combo!
                     </span>
                   </div>
                 </div>
 
                 {/* Products summary */}
-                <div className="bg-linear-to-r from-orange-50 to-red-50 rounded-xl p-4">
+                <div className="rounded-2xl p-4 bg-linear-to-r from-amber-50 to-rose-50 ring-1 ring-orange-200/60">
                   <div className="flex items-center gap-2 mb-3">
-                    <Package className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-semibold text-gray-900">
-                      This Combo Includes:
+                    <Package className="w-5 h-5 text-orange-700" />
+                    <h3 className="font-extrabold text-slate-900">
+                      This Combo Includes
                     </h3>
-                    <span className="ml-auto text-sm text-gray-600">
+                    <span className="ml-auto text-sm text-slate-600 font-bold">
                       {comboOffer.products.length} items
                     </span>
                   </div>
+
                   <div className="flex -space-x-2">
                     {comboOffer.products.slice(0, 5).map((item, index) => (
                       <div
                         key={item.productId}
-                        className="relative w-10 h-10 rounded-full border-2 border-white bg-white overflow-hidden shadow-sm"
+                        className="relative w-10 h-10 rounded-full ring-2 ring-white bg-white overflow-hidden shadow-sm"
                         title={item.product?.name || `Product ${index + 1}`}
                       >
                         {item.product?.image ? (
@@ -1073,68 +1242,72 @@ export default function ComboOfferDetail({
                             className="object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                            <Package className="w-4 h-4 text-gray-400" />
+                          <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                            <Package className="w-4 h-4 text-slate-400" />
                           </div>
                         )}
+
                         {item.quantity > 1 && (
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center">
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-orange-600 text-white text-xs rounded-full flex items-center justify-center font-extrabold shadow-sm">
                             {item.quantity}
                           </div>
                         )}
                       </div>
                     ))}
+
                     {comboOffer.products.length > 5 && (
-                      <div className="relative w-10 h-10 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-700">
+                      <div className="relative w-10 h-10 rounded-full ring-2 ring-white bg-slate-200 flex items-center justify-center text-xs font-extrabold text-slate-700">
                         +{comboOffer.products.length - 5}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Quantity & actions (combo-level) */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-6">
-                    <span className="text-base font-semibold text-gray-800">
-                      Quantity:
+                {/* Quantity & actions */}
+                <div className="space-y-5">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <span className="text-base font-extrabold text-slate-900">
+                      Quantity
                     </span>
-                    <div className="flex items-center bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-all duration-200">
+
+                    <div className="flex items-center bg-white ring-1 ring-slate-200 rounded-none shadow-sm overflow-hidden">
                       <button
                         onClick={() => setQty((q) => Math.max(1, q - 1))}
-                        className="h-12 w-12 flex items-center justify-center hover:bg-gray-50 transition-all duration-200 text-lg font-semibold text-gray-600 hover:text-gray-800 rounded-l-xl"
+                        className="h-12 w-12 grid place-items-center hover:bg-slate-50 transition-all text-lg font-extrabold text-slate-600 hover:text-slate-900 active:scale-95"
                       >
                         −
                       </button>
-                      <div className="h-12 w-16 flex items-center justify-center bg-gray-50 border-x-2 border-gray-200 font-bold text-base text-gray-800">
+                      <div className="h-12 w-16 grid place-items-center bg-slate-50 ring-1 ring-slate-200/60 font-extrabold text-base text-slate-900">
                         {qty}
                       </div>
                       <button
                         onClick={() => setQty((q) => Math.min(q + 1, maxQty))}
-                        className="h-12 w-12 flex items-center justify-center hover:bg-gray-50 transition-all duration-200 text-lg font-semibold text-gray-600 hover:text-gray-800 rounded-r-xl"
+                        className="h-12 w-12 grid place-items-center hover:bg-slate-50 transition-all text-lg font-extrabold text-slate-600 hover:text-slate-900 active:scale-95"
                       >
                         +
                       </button>
                     </div>
+
                     {inStock && (
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs font-semibold text-slate-500">
                         Max {maxQty} per order
                       </span>
                     )}
                   </div>
 
                   <div className="flex flex-wrap gap-3">
+                    {/* Add to Cart */}
                     <button
                       onClick={() => addToCart(cartProduct, displayQty)}
                       disabled={comboButtonDisabled}
-                      className={comboButtonClass}
+                      className={[
+                        primaryBtnBase,
+                        comboButtonDisabled ? primaryBtnDisabled : primaryBtn,
+                        "flex-1",
+                      ].join(" ")}
                       aria-label={`${comboButtonLabel} ${comboOffer.name} combo`}
                     >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -1145,15 +1318,17 @@ export default function ComboOfferDetail({
                       <span>{comboButtonLabel}</span>
                     </button>
 
-                    {/* BUY NOW -> creates superior context and routes to /checkout */}
+                    {/* Buy Now */}
                     <button
                       onClick={handleBuyNow}
                       disabled={!inStock || !isActive}
-                      className={`flex-1 cursor-pointer rounded-full px-6 py-3 text-sm font-semibold border-2 transition-all duration-300 transform hover:scale-105 ${
+                      className={[
+                        primaryBtnBase,
+                        "flex-1 bg-slate-100",
                         inStock && isActive
-                          ? "border-orange-500 text-orange-600 hover:bg-orange-50"
-                          : "border-gray-300 text-gray-400 cursor-not-allowed"
-                      }`}
+                          ? secondaryBtn
+                          : "border-2 border-slate-200 bg-slate-100 text-slate-400",
+                      ].join(" ")}
                     >
                       Buy Now
                     </button>
@@ -1161,17 +1336,17 @@ export default function ComboOfferDetail({
                 </div>
 
                 {/* Trust badges */}
-                <div className="grid grid-cols-3 gap-4 py-4 border-y border-gray-200">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Shield className="w-4 h-4 text-green-600" />
+                <div className="grid grid-cols-3 gap-3 py-4 border-y border-slate-200/70">
+                  <div className="flex items-center gap-2 text-sm text-slate-600 font-semibold">
+                    <Shield className="w-4 h-4 text-emerald-600" />
                     <span>Secure Payment</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Truck className="w-4 h-4 text-blue-600" />
+                  <div className="flex items-center gap-2 text-sm text-slate-600 font-semibold">
+                    <Truck className="w-4 h-4 text-sky-600" />
                     <span>Free Shipping</span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <RotateCcw className="w-4 h-4 text-purple-600" />
+                  <div className="flex items-center gap-2 text-sm text-slate-600 font-semibold">
+                    <RotateCcw className="w-4 h-4 text-violet-600" />
                     <span>Easy Returns</span>
                   </div>
                 </div>
@@ -1181,57 +1356,53 @@ export default function ComboOfferDetail({
         </div>
 
         {/* Tabs Section */}
-        <div className="mt-12 border-t border-gray-200 pt-8">
-          <div className="flex border-b border-gray-100 bg-gray-50 rounded-t-2xl p-2">
-            <button
-              onClick={() => setTab("description")}
-              className={`py-3 px-6 cursor-pointer rounded-xl font-bold text-sm transition-all duration-300 transform hover:scale-105 ${
-                tab === "description"
-                  ? "bg-white text-orange-600 shadow-lg border-2 border-orange-200"
-                  : "text-gray-600 hover:text-gray-800 hover:bg-white/50"
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setTab("products")}
-              className={`py-3 px-6 cursor-pointer rounded-xl font-bold text-sm transition-all duration-300 transform hover:scale-105 ${
-                tab === "products"
-                  ? "bg-white text-orange-600 shadow-lg border-2 border-orange-200"
-                  : "text-gray-600 hover:text-gray-800 hover:bg-white/50"
-              }`}
-            >
-              Products ({comboOffer.products.length})
-            </button>
-            <button
-              onClick={() => setTab("details")}
-              className={`py-3 px-6 cursor-pointer rounded-xl font-bold text-sm transition-all duration-300 transform hover:scale-105 ${
-                tab === "details"
-                  ? "bg-white text-orange-600 shadow-lg border-2 border-orange-200"
-                  : "text-gray-600 hover:text-gray-800 hover:bg-white/50"
-              }`}
-            >
-              Details
-            </button>
+        <div className="mt-12 pt-2">
+          <div className={`${card} p-2`}>
+            <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <button
+                onClick={() => setTab("description")}
+                className={`${tabBase} ${tab === "description" ? tabOn : tabOff}`}
+              >
+                Overview
+              </button>
+              <button
+                onClick={() => setTab("products")}
+                className={`${tabBase} ${tab === "products" ? tabOn : tabOff}`}
+              >
+                Products ({comboOffer.products.length})
+              </button>
+              <button
+                onClick={() => setTab("details")}
+                className={`${tabBase} ${tab === "details" ? tabOn : tabOff}`}
+              >
+                Details
+              </button>
+              <button
+                onClick={() => setTab("reviews")}
+                className={`${tabBase} ${tab === "reviews" ? tabOn : tabOff}`}
+              >
+                Reviews ({displayReviewCount})
+              </button>
+            </div>
           </div>
 
-          <div className="py-8 min-h-50">
+          <div className={`${card} mt-4 p-6 sm:p-8`}>
             {tab === "description" && (
-              <div className="prose prose-sm max-w-none text-gray-600 space-y-6">
-                <p className="text-base leading-relaxed">
+              <div className="prose prose-sm max-w-none text-slate-700 space-y-6">
+                <p className="text-base leading-relaxed font-medium">
                   {comboOffer.description}
                 </p>
 
                 {comboOffer.features?.length > 0 && (
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">
+                    <h4 className="font-extrabold text-slate-900 mb-3">
                       Combo Features
                     </h4>
                     <ul className="grid gap-3">
                       {comboOffer.features.map((feature, index) => (
                         <li key={index} className="flex items-center gap-2">
                           <span className="inline-block h-2 w-2 rounded-full bg-orange-500" />
-                          <span>{feature}</span>
+                          <span className="font-medium">{feature}</span>
                         </li>
                       ))}
                     </ul>
@@ -1240,12 +1411,12 @@ export default function ComboOfferDetail({
 
                 {comboOffer.tags?.length > 0 && (
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">Tags</h4>
+                    <h4 className="font-extrabold text-slate-900 mb-3">Tags</h4>
                     <div className="flex flex-wrap gap-2">
                       {comboOffer.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700"
+                          className="rounded-full bg-orange-50 px-3 py-1 text-xs font-extrabold text-orange-700 ring-1 ring-orange-200/70"
                         >
                           {tag}
                         </span>
@@ -1258,20 +1429,18 @@ export default function ComboOfferDetail({
 
             {tab === "products" && (
               <div className="space-y-4">
-                <h4 className="font-semibold text-gray-900 mb-4">
+                <h4 className="font-extrabold text-slate-900 mb-4">
                   Products in this Combo
                 </h4>
                 <div className="space-y-3">
                   {comboOffer.products.map((item, index) => (
                     <div
                       key={item.productId}
-                      className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg"
+                      className="flex items-center gap-4 p-3 rounded-2xl bg-slate-50 ring-1 ring-slate-200/70"
                     >
-                      <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white">
+                      <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-white ring-1 ring-slate-200">
                         {item.product?.image ? (
-                          <Link
-                            href={`/products/${item.product?.slug || "#"}`}
-                          >
+                          <Link href={`/products/${item.product?.slug || "#"}`}>
                             <Image
                               src={getImagePath(item.product.image)}
                               alt={item.product.name || "Product image"}
@@ -1281,34 +1450,32 @@ export default function ComboOfferDetail({
                             />
                           </Link>
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                            <Package className="w-5 h-5 text-gray-400" />
+                          <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                            <Package className="w-5 h-5 text-slate-400" />
                           </div>
                         )}
                       </div>
-                      <div className="flex-1">
-                        <h5 className="font-medium text-gray-900">
-                          <Link
-                            href={`/products/${item.product?.slug || "#"}`}
-                          >
+
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-extrabold text-slate-900 truncate">
+                          <Link href={`/products/${item.product?.slug || "#"}`}>
                             {item.product?.name || `Product ${index + 1}`}
                           </Link>
                         </h5>
                         {item.product?.price != null && (
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-slate-600 font-semibold">
                             {formatCurrency(item.product.price)} each
                           </p>
                         )}
                       </div>
+
                       <div className="text-right">
-                        <div className="text-sm font-semibold text-gray-900">
+                        <div className="text-sm font-extrabold text-slate-900">
                           × {item.quantity}
                         </div>
                         {item.product?.price != null && (
-                          <div className="text-xs text-gray-500">
-                            {formatCurrency(
-                              (item.product.price || 0) * item.quantity
-                            )}
+                          <div className="text-xs text-slate-500 font-semibold">
+                            {formatCurrency((item.product.price || 0) * item.quantity)}
                           </div>
                         )}
                       </div>
@@ -1319,121 +1486,102 @@ export default function ComboOfferDetail({
             )}
 
             {tab === "details" && (
-              <div className="prose prose-sm max-w-none text-gray-600">
+              <div className="prose prose-sm max-w-none text-slate-700">
                 <div className="grid md:grid-cols-2 gap-8">
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-4">
+                    <h4 className="font-extrabold text-slate-900 mb-4">
                       Offer Details
                     </h4>
-                    <dl className="space-y-3 text-sm text-gray-700">
+
+                    <dl className="space-y-3 text-sm">
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          Offer Status
-                        </dt>
-                        <dd
-                          className={`text-right px-2 py-1 rounded-full text-xs font-semibold ${statusColor}`}
-                        >
-                          {statusText}
-                        </dd>
+                        <dt className="font-bold text-slate-900">Offer Status</dt>
+                        <dd className={`${pillBase} ${statusPill}`}>{statusText}</dd>
                       </div>
+
                       {comboOffer.category && (
                         <div className="flex justify-between gap-4">
-                          <dt className="font-medium text-gray-900">
-                            Category
-                          </dt>
-                          <dd className="text-right">
-                            {comboOffer.category}
-                          </dd>
+                          <dt className="font-bold text-slate-900">Category</dt>
+                          <dd className="text-right font-semibold">{comboOffer.category}</dd>
                         </div>
                       )}
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          Start Date
-                        </dt>
-                        <dd className="text-right">
+                        <dt className="font-bold text-slate-900">Start Date</dt>
+                        <dd className="text-right font-semibold">
                           {formatDate(comboOffer.validity.startDate)}
                         </dd>
                       </div>
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">End Date</dt>
-                        <dd className="text-right">
+                        <dt className="font-bold text-slate-900">End Date</dt>
+                        <dd className="text-right font-semibold">
                           {formatDate(comboOffer.validity.endDate)}
                         </dd>
                       </div>
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          Days Remaining
-                        </dt>
-                        <dd className="text-right font-semibold">
+                        <dt className="font-bold text-slate-900">Days Remaining</dt>
+                        <dd className="text-right font-extrabold text-orange-700">
                           {daysRemaining}
                         </dd>
                       </div>
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          Total Products
-                        </dt>
-                        <dd className="text-right">
-                          {comboOffer.products.length}
-                        </dd>
+                        <dt className="font-bold text-slate-900">Total Products</dt>
+                        <dd className="text-right font-semibold">{comboOffer.products.length}</dd>
                       </div>
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          Original Total
-                        </dt>
-                        <dd className="text-right">
+                        <dt className="font-bold text-slate-900">Original Total</dt>
+                        <dd className="text-right font-semibold">
                           {formatCurrency(comboOffer.pricing.originalTotal)}
                         </dd>
                       </div>
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          Discount
-                        </dt>
-                        <dd className="text-right font-semibold text-green-600">
+                        <dt className="font-bold text-slate-900">Discount</dt>
+                        <dd className="text-right font-extrabold text-emerald-700">
                           {comboOffer.pricing.discountPercentage}%
                         </dd>
                       </div>
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          You Save
-                        </dt>
-                        <dd className="text-right font-semibold text-green-600">
+                        <dt className="font-bold text-slate-900">You Save</dt>
+                        <dd className="text-right font-extrabold text-emerald-700">
                           {formatCurrency(savings)}
                         </dd>
                       </div>
 
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          Published
-                        </dt>
-                        <dd className="text-right">
+                        <dt className="font-bold text-slate-900">Published</dt>
+                        <dd className="text-right font-semibold">
                           {settings.isPublished ? "Yes" : "No"}
                         </dd>
                       </div>
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          Featured
-                        </dt>
-                        <dd className="text-right">
+                        <dt className="font-bold text-slate-900">Featured</dt>
+                        <dd className="text-right font-semibold">
                           {settings.isFeatured ? "Yes" : "No"}
                         </dd>
                       </div>
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">Priority</dt>
-                        <dd className="text-right">{settings.priority}</dd>
+                        <dt className="font-bold text-slate-900">Priority</dt>
+                        <dd className="text-right font-semibold">{settings.priority}</dd>
                       </div>
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          Created At
-                        </dt>
-                        <dd className="text-right">
+                        <dt className="font-bold text-slate-900">Created At</dt>
+                        <dd className="text-right font-semibold">
                           {formatDate(comboOffer.createdAt)}
                         </dd>
                       </div>
+
                       <div className="flex justify-between gap-4">
-                        <dt className="font-medium text-gray-900">
-                          Last Updated
-                        </dt>
-                        <dd className="text-right">
+                        <dt className="font-bold text-slate-900">Last Updated</dt>
+                        <dd className="text-right font-semibold">
                           {formatDate(comboOffer.updatedAt)}
                         </dd>
                       </div>
@@ -1441,70 +1589,290 @@ export default function ComboOfferDetail({
                   </div>
 
                   <div className="space-y-4">
-                    <h4 className="font-semibold text-gray-900">
+                    <h4 className="font-extrabold text-slate-900">
                       Additional Information
                     </h4>
-                    <p className="leading-relaxed">
-                      This is a limited time combo offer. Products may be
-                      substituted with similar items of equal or greater value
-                      if out of stock.
+                    <p className="leading-relaxed font-medium text-slate-700">
+                      This is a limited time combo offer. Products may be substituted with
+                      similar items of equal or greater value if out of stock.
                     </p>
+
                     {comboOffer.seo && (
-                      <div>
-                        <h5 className="font-medium text-gray-900 mb-2">
+                      <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200/70 p-4">
+                        <h5 className="font-extrabold text-slate-900 mb-2">
                           SEO Information
                         </h5>
-                        <ul className="space-y-1 text-sm text-gray-600">
+                        <ul className="space-y-1 text-sm text-slate-600 font-semibold">
                           {comboOffer.seo.title && (
                             <li>
-                              <span className="font-semibold">Title: </span>
+                              <span className="font-extrabold text-slate-900">Title: </span>
                               {comboOffer.seo.title}
                             </li>
                           )}
                           {comboOffer.seo.description && (
                             <li>
-                              <span className="font-semibold">
-                                Description:{" "}
-                              </span>
+                              <span className="font-extrabold text-slate-900">Description: </span>
                               {comboOffer.seo.description}
                             </li>
                           )}
-                          {comboOffer.seo.keywords &&
-                            comboOffer.seo.keywords.length > 0 && (
-                              <li>
-                                <span className="font-semibold">
-                                  Keywords:{" "}
-                                </span>
-                                {comboOffer.seo.keywords.join(", ")}
-                              </li>
-                            )}
+                          {comboOffer.seo.keywords && comboOffer.seo.keywords.length > 0 && (
+                            <li>
+                              <span className="font-extrabold text-slate-900">Keywords: </span>
+                              {comboOffer.seo.keywords.join(", ")}
+                            </li>
+                          )}
                         </ul>
                       </div>
                     )}
-                    <div>
-                      <h5 className="font-medium text-gray-900 mb-2">
+
+                  <div className="rounded-2xl bg-linear-to-br from-amber-50 to-rose-50 ring-1 ring-orange-200/60 p-4">
+                      <h5 className="font-extrabold text-slate-900 mb-2">
                         Terms & Conditions
                       </h5>
-                      <ul className="space-y-1 text-sm text-gray-600">
-                        <li className="flex items-start gap-2">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-orange-500 mt-1" />
-                          <span>Offer valid while supplies last</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-orange-500 mt-1" />
-                          <span>Cannot be combined with other offers</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-orange-500 mt-1" />
-                          <span>Free shipping on all combo orders</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-orange-500 mt-1" />
-                          <span>Normal return policy applies</span>
-                        </li>
+                      <ul className="space-y-2 text-sm text-slate-700 font-semibold">
+                        {[
+                          "Offer valid while supplies last",
+                          "Cannot be combined with other offers",
+                          "Free shipping on all combo orders",
+                          "Normal return policy applies",
+                        ].map((t) => (
+                          <li key={t} className="flex items-start gap-2">
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-orange-500 mt-2" />
+                            <span>{t}</span>
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {tab === "reviews" && (
+              <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
+                <div className="space-y-6">
+                  <div className="rounded-2xl bg-slate-50 ring-1 ring-slate-200/70 p-5">
+                    <div className="flex items-center justify-between gap-6">
+                      <div>
+                        <div className="text-3xl font-extrabold text-slate-900">
+                          {displayReviewLabel}
+                        </div>
+                        <div className="mt-2 flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={`review-summary-${i}`}
+                              className={`h-4 w-4 ${
+                                i < displayReviewRounded
+                                  ? "fill-amber-400 text-amber-400"
+                                  : "text-slate-300"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <p className="mt-2 text-sm font-semibold text-slate-600">
+                          Based on {displayReviewCount} review
+                          {displayReviewCount !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-extrabold uppercase tracking-[0.18em] text-slate-600">
+                        Verified feedback
+                      </div>
+                    </div>
+                  </div>
+
+                  <form
+                    onSubmit={handleReviewSubmit}
+                    className="space-y-5 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm"
+                  >
+                    <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-500">
+                      Reviewing {comboOffer.name}
+                    </p>
+
+                    <div className="space-y-2">
+                      <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-500">
+                        Your rating
+                      </p>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: 5 }).map((_, i) => {
+                          const ratingValue = i + 1;
+                          const isActive = ratingValue <= reviewForm.rating;
+                          return (
+                            <button
+                              key={`review-rate-${ratingValue}`}
+                              type="button"
+                              onClick={() =>
+                                setReviewForm((prev) => ({
+                                  ...prev,
+                                  rating: ratingValue,
+                                }))
+                              }
+                              className="rounded-full p-1 transition-transform hover:scale-105"
+                              aria-label={`Rate ${ratingValue} star`}
+                            >
+                              <Star
+                                className={`h-5 w-5 ${
+                                  isActive
+                                    ? "fill-amber-400 text-amber-400"
+                                    : "text-slate-300"
+                                }`}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="space-y-2 text-sm font-semibold text-slate-700">
+                        Name
+                        <input
+                          value={reviewForm.name}
+                          onChange={(event) =>
+                            setReviewForm((prev) => ({
+                              ...prev,
+                              name: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                          placeholder="Your name"
+                          required
+                        />
+                      </label>
+                      <label className="space-y-2 text-sm font-semibold text-slate-700">
+                        Email (optional)
+                        <input
+                          type="email"
+                          value={reviewForm.email}
+                          onChange={(event) =>
+                            setReviewForm((prev) => ({
+                              ...prev,
+                              email: event.target.value,
+                            }))
+                          }
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                          placeholder="you@example.com"
+                        />
+                      </label>
+                    </div>
+
+                    <label className="space-y-2 text-sm font-semibold text-slate-700">
+                      Review title (optional)
+                      <input
+                        value={reviewForm.title}
+                        onChange={(event) =>
+                          setReviewForm((prev) => ({
+                            ...prev,
+                            title: event.target.value,
+                          }))
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                        placeholder="Short headline"
+                      />
+                    </label>
+
+                    <label className="space-y-2 text-sm font-semibold text-slate-700">
+                      Your review
+                      <textarea
+                        value={reviewForm.comment}
+                        onChange={(event) =>
+                          setReviewForm((prev) => ({
+                            ...prev,
+                            comment: event.target.value,
+                          }))
+                        }
+                        className="min-h-30 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-300"
+                        placeholder="Share what you loved..."
+                        required
+                      />
+                    </label>
+
+                    {reviewError && (
+                      <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+                        {reviewError}
+                      </p>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isSubmittingReview || !comboOffer.id}
+                      className="inline-flex w-full items-center justify-center rounded-xl bg-orange-600 px-4 py-3 text-sm font-extrabold uppercase tracking-[0.18em] text-white transition-all hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-200"
+                    >
+                      {isSubmittingReview ? "Submitting..." : "Submit review"}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-lg font-extrabold text-slate-900">
+                      Recent reviews
+                    </h4>
+                    <span className="text-xs font-semibold text-slate-500">
+                      {comboOffer.name}
+                    </span>
+                  </div>
+
+                  {isLoadingReviews ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <div
+                          key={`review-skeleton-${index}`}
+                          className="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm"
+                        >
+                          <div className="h-4 w-1/2 rounded bg-slate-100" />
+                          <div className="mt-3 h-3 w-1/3 rounded bg-slate-100" />
+                          <div className="mt-4 h-3 w-full rounded bg-slate-100" />
+                          <div className="mt-2 h-3 w-4/5 rounded bg-slate-100" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : reviews.length > 0 ? (
+                    <div className="space-y-4">
+                      {reviews.map((review) => (
+                        <div
+                          key={review.id}
+                          className="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-extrabold text-slate-900">
+                                {review.name}
+                              </p>
+                              <div className="mt-2 flex items-center gap-1">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star
+                                    key={`${review.id}-star-${i}`}
+                                    className={`h-4 w-4 ${
+                                      i < review.rating
+                                        ? "fill-amber-400 text-amber-400"
+                                        : "text-slate-300"
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                            <span className="text-xs font-semibold text-slate-500">
+                              {formatReviewDate(review.createdAt)}
+                            </span>
+                          </div>
+
+                          {review.title && (
+                            <p className="mt-3 text-sm font-bold text-slate-900">
+                              {review.title}
+                            </p>
+                          )}
+                          <p className="mt-2 text-sm text-slate-600">
+                            {review.comment}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-600">
+                      No reviews yet. Be the first to share your thoughts.
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1512,17 +1880,19 @@ export default function ComboOfferDetail({
         </div>
 
         {/* Related Combo Offers */}
-        {relatedCombos.length > 0 && (
+        {isLoadingRelated ? (
+          <RelatedCombosSkeleton />
+        ) : relatedCombos.length > 0 ? (
           <div className="mt-20">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+              <h2 className={`text-3xl sm:text-4xl ${heading} mb-3`}>
                 More Combo Offers
               </h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">
-                Explore more amazing bundle deals and save even more on your
-                favorite products
+              <p className="text-slate-600 max-w-2xl mx-auto font-medium">
+                Explore more amazing bundle deals and save even more on your favorite products.
               </p>
             </div>
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {relatedCombos.map((combo) => (
                 <Link
@@ -1530,71 +1900,71 @@ export default function ComboOfferDetail({
                   href={`/combo-offers/${combo.slug}`}
                   className="group"
                 >
-                  <div className="relative overflow-hidden rounded-xl bg-linear-to-br from-orange-100 to-red-100 mb-4 shadow-sm group-hover:shadow-lg transition-all duration-300">
+                  <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-amber-100 via-orange-100 to-rose-100 mb-4 shadow-sm ring-1 ring-slate-200 group-hover:shadow-lg transition-all duration-300">
                     <div className="aspect-square relative">
                       <Image
                         src={getImagePath(combo.thumbnail)}
                         alt={combo.name}
-                        width={300}
-                        height={300}
+                        width={400}
+                        height={400}
                         className="h-full w-full object-cover group-hover:scale-110 transition-transform duration-500"
                       />
                       <div className="absolute top-3 right-3">
-                        <span className="rounded-full bg-linear-to-r from-orange-500 to-red-500 px-2 py-1 text-xs font-bold text-white">
+                        <span className={`${pillBase} bg-linear-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-sm`}>
                           {combo.pricing.discountPercentage}% OFF
                         </span>
                       </div>
                     </div>
+
                     <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const normalizedDelivery = normalizeDeliveryData(
-                          combo.delivery,
-                          combo.pricing.currency
-                        );
-                        toggleWishlist({
-                          id: combo.id,
-                          name: combo.name,
-                          price: combo.pricing.discountedPrice,
-                          image: combo.thumbnail,
-                          slug: combo.slug,
-                          oldPrice: combo.pricing.originalTotal,
-                          isCombo: true,
-                          delivery: normalizedDelivery,
-                          deliveryCharge: resolveDeliveryCharge(
-                            normalizedDelivery
-                          ),
-                        });
-                      }}
-                        className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md hover:bg-white transition-colors"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const normalizedDelivery = normalizeDeliveryData(
+                            combo.delivery,
+                            combo.pricing.currency
+                          );
+                          toggleWishlist({
+                            id: combo.id,
+                            name: combo.name,
+                            price: combo.pricing.discountedPrice,
+                            image: combo.thumbnail,
+                            slug: combo.slug,
+                            oldPrice: combo.pricing.originalTotal,
+                            isCombo: true,
+                            delivery: normalizedDelivery,
+                            deliveryCharge: resolveDeliveryCharge(normalizedDelivery),
+                          });
+                        }}
+                        className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md hover:bg-white transition-colors active:scale-95 ring-1 ring-slate-200"
                       >
                         <Heart
                           className={`w-4 h-4 ${
                             isInWishlist(combo.id)
-                              ? "fill-red-500 text-red-500"
-                              : "text-gray-600"
+                              ? "fill-rose-600 text-rose-600"
+                              : "text-slate-700"
                           }`}
                         />
                       </button>
                     </div>
                   </div>
+
                   <div className="space-y-2">
-                    <h3 className="font-medium text-gray-900 group-hover:text-orange-600 transition-colors line-clamp-2">
+                    <h3 className="font-extrabold text-slate-900 group-hover:text-orange-700 transition-colors line-clamp-2">
                       {combo.name}
                     </h3>
                     <div className="flex items-center justify-between">
                       <div className="space-y-1">
-                        <p className="font-semibold text-gray-900">
+                        <p className="font-extrabold text-slate-900">
                           {formatCurrency(combo.pricing.discountedPrice)}
                         </p>
-                        <p className="text-xs text-gray-500 line-through">
+                        <p className="text-xs text-slate-500 line-through font-bold">
                           {formatCurrency(combo.pricing.originalTotal)}
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Layers className="w-3 h-3 text-gray-400" />
-                        <span className="text-xs text-gray-600">
+                        <Layers className="w-3 h-3 text-slate-400" />
+                        <span className="text-xs text-slate-600 font-bold">
                           {combo.products.length}
                         </span>
                       </div>
@@ -1604,7 +1974,7 @@ export default function ComboOfferDetail({
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

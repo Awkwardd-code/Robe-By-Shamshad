@@ -20,7 +20,17 @@ import {
   OrderSourceData,
 } from "@/lib/orderSourceToken";
 
-type ProductLike = Record<string, unknown>;
+type DeliveryInfo = {
+  isFree: boolean;
+  charge?: number;
+  message?: string;
+};
+
+type ProductLike = Record<string, unknown> & {
+  id: string;
+  delivery?: DeliveryInfo;
+  deliveryCharge?: number;
+};
 
 const isProductLike = (value: unknown): value is ProductLike => {
   if (!value || typeof value !== "object") return false;
@@ -93,10 +103,10 @@ export type BuyNowContextValue = {
 const BuyNowContext = createContext<BuyNowContextValue | undefined>(undefined);
 
 /** Storage keys */
-const STORAGE_KEY = "sn-buy-now-selection";
-const EPOCH_KEY = "sn-buy-now-epoch";
-const RESET_TS_KEY = "sn-buy-now-reset-ts"; // localStorage
-const LOCK_UNTIL_KEY = "sn-buy-now-lock-until"; // sessionStorage
+const STORAGE_KEY = "RBS-buy-now-selection";
+const EPOCH_KEY = "RBS-buy-now-epoch";
+const RESET_TS_KEY = "RBS-buy-now-reset-ts"; // localStorage
+const LOCK_UNTIL_KEY = "RBS-buy-now-lock-until"; // sessionStorage
 
 type PersistedSelections = {
   epoch: number;

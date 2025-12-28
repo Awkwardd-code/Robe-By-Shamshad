@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState, ChangeEvent, FormEvent, CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { FaEye, FaEyeSlash, FaCheck, FaGoogle } from "react-icons/fa";
+import { useAuth } from "@/context/AuthContext";
 
 const robe = {
   cream: "#FBF3E8",
@@ -38,6 +39,7 @@ const toBangladeshInternationalFormat = (value: string) => {
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { setUser } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState(false);
@@ -119,6 +121,14 @@ export default function RegisterPage() {
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data?.error || "Verification failed. Please try again.");
+      }
+
+      if (data?.user) {
+        const nextUser = {
+          ...data.user,
+          id: data.user.id ?? data.user._id
+        };
+        setUser(nextUser);
       }
 
       setFormError(null);

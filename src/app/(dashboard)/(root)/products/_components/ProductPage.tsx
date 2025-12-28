@@ -6,7 +6,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Filter, Grid, List, ChevronRight, Heart, ShoppingBag } from "lucide-react";
+import {
+  Filter,
+  Grid,
+  List,
+  ChevronRight,
+  Heart,
+  ShoppingBag,
+  RefreshCcw,
+  ChevronLeft,
+  Search,
+} from "lucide-react";
 import { useCommerce } from "@/context/CommerceContext";
 import type { Product as CommerceProduct } from "@/context/CommerceContext";
 
@@ -20,7 +30,7 @@ interface DeliveryInfo {
 }
 
 interface Product {
-  category: string; // should be slug in your API output (recommended)
+  category: string;
   _id: string | { $oid?: string } | null;
   brand: string;
   name: string;
@@ -84,7 +94,8 @@ const PRICE_RANGES = [
   { id: "5000+", label: "Tk. 5000+", min: 5000, max: Infinity },
 ];
 
-const SKELETON_COUNT = 6;
+const SKELETON_COUNT = 8;
+
 function slugifyName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
@@ -103,10 +114,7 @@ function resolveProductSlug(product: Product) {
   return derivedSlug || resolveApiProductId(product);
 }
 
-const tkFormatter = new Intl.NumberFormat("bn-BD", {
-  maximumFractionDigits: 0,
-});
-
+const tkFormatter = new Intl.NumberFormat("bn-BD", { maximumFractionDigits: 0 });
 function formatTk(n: number) {
   return `Tk. ${tkFormatter.format(n)}`;
 }
@@ -121,6 +129,7 @@ const toCommerceProduct = (product: Product): CommerceProduct => {
   const id = resolveApiProductId(product);
 
   return {
+    ...product,
     id,
     name: product.name,
     slug,
@@ -133,24 +142,75 @@ const toCommerceProduct = (product: Product): CommerceProduct => {
   };
 };
 
-/* -------------------- Skeletons -------------------- */
+/* -------------------- UI primitives -------------------- */
+function TogglePill({
+  active,
+  disabled,
+  onClick,
+  children,
+  title,
+}: {
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      disabled={disabled}
+      className={[
+        "h-9 px-3 border text-xs font-bold uppercase tracking-widest transition",
+        disabled ? "opacity-50 cursor-not-allowed" : "",
+        active
+          ? "border-gray-900 text-gray-900 bg-gray-50"
+          : "border-gray-200 text-gray-600 hover:border-gray-400",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Chip({
+  onRemove,
+  label,
+}: {
+  label: string;
+  onRemove: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-gray-700 hover:border-gray-400"
+      title="Remove filter"
+    >
+      <span className="truncate max-w-40">{label}</span>
+      <span className="text-gray-400">×</span>
+    </button>
+  );
+}
+
 function ProductGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
         <div
           key={`grid-skel-${index}`}
-          className="animate-pulse rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+          className="animate-pulse bg-white border border-gray-200 shadow-[0_1px_0_rgba(0,0,0,0.03)]"
         >
-          <div className="h-60 rounded-xl bg-gray-200" />
-          <div className="mt-4 space-y-3">
-            <div className="h-4 w-3/4 rounded bg-gray-200" />
-            <div className="h-4 w-1/2 rounded bg-gray-200" />
-            <div className="flex gap-2">
-              <span className="h-8 w-1/2 rounded bg-gray-200" />
-              <span className="h-8 w-1/3 rounded bg-gray-200" />
-            </div>
-            <div className="h-10 rounded bg-gray-200" />
+          <div className="h-56 bg-gray-100 flex items-center justify-center">
+            <div className="h-32 w-32 bg-gray-200/70 rounded" />
+          </div>
+          <div className="px-4 py-5 text-center space-y-3">
+            <div className="h-3 w-16 bg-gray-200 rounded mx-auto" />
+            <div className="h-4 w-4/5 bg-gray-200 rounded mx-auto" />
+            <div className="h-4 w-3/5 bg-gray-200 rounded mx-auto" />
+            <div className="h-10 w-full bg-gray-200 rounded" />
           </div>
         </div>
       ))}
@@ -161,22 +221,20 @@ function ProductGridSkeleton() {
 function ProductListSkeleton() {
   return (
     <div className="space-y-4">
-      {Array.from({ length: SKELETON_COUNT }).map((_, index) => (
+      {Array.from({ length: 6 }).map((_, index) => (
         <div
           key={`list-skel-${index}`}
-          className="animate-pulse rounded-xl border border-gray-200 bg-white shadow-sm"
+          className="animate-pulse bg-white border border-gray-200 shadow-[0_1px_0_rgba(0,0,0,0.03)]"
         >
-          <div className="flex flex-col gap-4 p-6 md:flex-row">
-            <div className="md:w-64 h-60 rounded-xl bg-gray-200" />
+          <div className="flex flex-col md:flex-row gap-4 p-5">
+            <div className="md:w-64 h-56 bg-gray-100 flex items-center justify-center">
+              <div className="h-28 w-28 bg-gray-200/70 rounded" />
+            </div>
             <div className="flex-1 space-y-3">
-              <div className="h-4 w-40 rounded bg-gray-200" />
-              <div className="h-4 w-3/4 rounded bg-gray-200" />
-              <div className="flex flex-wrap gap-2">
-                <span className="h-8 w-28 rounded bg-gray-200" />
-                <span className="h-8 w-24 rounded bg-gray-200" />
-              </div>
-              <div className="h-4 w-1/3 rounded bg-gray-200" />
-              <div className="h-12 w-2/3 rounded bg-gray-200" />
+              <div className="h-3 w-28 bg-gray-200 rounded" />
+              <div className="h-4 w-3/4 bg-gray-200 rounded" />
+              <div className="h-4 w-1/2 bg-gray-200 rounded" />
+              <div className="h-10 w-56 bg-gray-200 rounded" />
             </div>
           </div>
         </div>
@@ -187,31 +245,15 @@ function ProductListSkeleton() {
 
 function FilterSidebarSkeleton() {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6 space-y-6 animate-pulse">
-      <div className="h-5 w-1/2 rounded bg-gray-200" />
-      <div className="space-y-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={`search-skel-${index}`} className="h-4 rounded bg-gray-200" />
-        ))}
-      </div>
-      <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={`section-skel-${index}`} className="space-y-2">
-            <div className="h-3 w-1/3 rounded bg-gray-200" />
-            <div className="flex flex-wrap gap-2">
-              <span className="h-8 w-10 rounded bg-gray-200" />
-              <span className="h-8 w-10 rounded bg-gray-200" />
-              <span className="h-8 w-10 rounded bg-gray-200" />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="space-y-2">
-        {Array.from({ length: 2 }).map((_, index) => (
-          <div key={`range-skel-${index}`} className="h-4 rounded bg-gray-200" />
-        ))}
-      </div>
-      <div className="h-10 w-full rounded bg-gray-200" />
+    <div className="bg-white border border-gray-200 p-5 space-y-6 animate-pulse">
+      <div className="h-4 w-1/2 rounded bg-gray-200" />
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="space-y-2">
+          <div className="h-3 w-24 rounded bg-gray-200" />
+          <div className="h-3 w-40 rounded bg-gray-200/80" />
+          <div className="h-3 w-36 rounded bg-gray-200/70" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -228,15 +270,13 @@ export default function DynamicProductListingPage() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+
   const searchParams = useSearchParams();
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(() => searchParams.getAll("category"));
-  const {
-    wishlistItems,
-    addToWishlist,
-    removeFromWishlist,
-    addToCart,
-    isInCart,
-  } = useCommerce();
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() =>
+    searchParams.getAll("category")
+  );
+
+  const { wishlistItems, addToWishlist, removeFromWishlist, addToCart, isInCart } = useCommerce();
   const wishlistIds = useMemo(() => new Set(wishlistItems.map((item) => item.id)), [wishlistItems]);
 
   // API states
@@ -249,7 +289,7 @@ export default function DynamicProductListingPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  // Track desktop safely (fixes window.innerWidth usage in render)
+  // Track desktop safely
   useEffect(() => {
     const update = () => setIsDesktop(window.innerWidth >= 1024);
     update();
@@ -257,9 +297,11 @@ export default function DynamicProductListingPage() {
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  // Extract unique brands from products
+  // Unique brands from products
   const uniqueBrands = useMemo(() => {
-    return Array.from(new Set(products.map((p) => p.brand))).sort();
+    return Array.from(new Set(products.map((p) => p.brand))).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
   }, [products]);
 
   // Load categories
@@ -283,7 +325,6 @@ export default function DynamicProductListingPage() {
           }));
 
         const deduped = Array.from(new Map(sanitized.map((cat) => [cat.slug, cat])).values());
-
         deduped.sort((a, b) =>
           a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
         );
@@ -299,13 +340,11 @@ export default function DynamicProductListingPage() {
     return () => controller.abort();
   }, []);
 
+  // Keep categories in sync with URL
   useEffect(() => {
     const categoriesFromUrl = searchParams.getAll("category");
     setSelectedCategories((prev) => {
-      if (
-        prev.length === categoriesFromUrl.length &&
-        prev.every((value, index) => value === categoriesFromUrl[index])
-      ) {
+      if (prev.length === categoriesFromUrl.length && prev.every((v, i) => v === categoriesFromUrl[i])) {
         return prev;
       }
       return categoriesFromUrl;
@@ -318,16 +357,16 @@ export default function DynamicProductListingPage() {
     return map;
   }, [availableCategories]);
 
-  // Debounce search
+  // Debounce search (enabled)
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
+      setDebouncedSearch(searchQuery.trim());
       setCurrentPage(1);
-    }, 500);
+    }, 350);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch products (SERVER-SIDE filters: search, gender, sort, brand, category, pagination)
+  // Fetch products (server filters: search, gender, sort, brand, category, pagination)
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -341,10 +380,7 @@ export default function DynamicProductListingPage() {
         ...(sort !== "featured" && { sort }),
       });
 
-      // multi brand
       brands.forEach((brand) => params.append("brand", brand));
-
-      // ✅ multi category (slug)
       selectedCategories.forEach((slug) => params.append("category", slug));
 
       const response = await fetch(`/api/products?${params.toString()}`);
@@ -352,7 +388,6 @@ export default function DynamicProductListingPage() {
 
       const data: ApiResponse = await response.json();
 
-      // Mark new/bestseller (client enhancement)
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -377,7 +412,7 @@ export default function DynamicProductListingPage() {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Client-side filtering (price/size/color + category safety)
+  // Client-side filtering (price/size/color + category fallback)
   const filtered = useMemo(() => {
     let list = [...products];
 
@@ -397,7 +432,6 @@ export default function DynamicProductListingPage() {
       list = list.filter((p) => colors.some((c) => p.details?.colors?.includes(c)));
     }
 
-    // keep as safety fallback (if API didn’t filter perfectly)
     if (selectedCategories.length > 0) {
       list = list.filter((p) => selectedCategories.includes(p.category));
     }
@@ -426,8 +460,7 @@ export default function DynamicProductListingPage() {
     addToWishlist(commerceProduct);
   };
 
-  const isProductInCart = (product: Product) =>
-    isInCart(resolveApiProductId(product));
+  const isProductInCart = (product: Product) => isInCart(resolveApiProductId(product));
 
   const handleAddToCart = (product: Product) => {
     if (product.inventory.quantity <= 0) return;
@@ -435,8 +468,7 @@ export default function DynamicProductListingPage() {
     addToCart(toCommerceProduct(product));
   };
 
-  const isProductWishlisted = (product: Product) =>
-    wishlistIds.has(resolveApiProductId(product));
+  const isProductWishlisted = (product: Product) => wishlistIds.has(resolveApiProductId(product));
 
   const activeFiltersCount = [
     gender !== "all",
@@ -445,6 +477,7 @@ export default function DynamicProductListingPage() {
     sizes.length,
     colors.length,
     selectedCategories.length,
+    Boolean(debouncedSearch),
   ].filter(Boolean).length;
 
   const handlePageChange = (page: number) => {
@@ -454,67 +487,90 @@ export default function DynamicProductListingPage() {
     }
   };
 
-  const renderPagination = () => {
+  // refined pagination: always show first/last + siblings
+  const pagination = useMemo(() => {
     const pages: Array<number | "..."> = [];
-    const maxVisible = 5;
+    if (totalPages <= 1) return pages;
 
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      pages.push(1);
+    const siblings = 1;
+    const boundary = 1;
 
-      if (currentPage > 3) pages.push("...");
+    const startPages = Array.from({ length: Math.min(boundary, totalPages) }, (_, i) => i + 1);
+    const endPages = Array.from(
+      { length: Math.min(boundary, totalPages) },
+      (_, i) => totalPages - Math.min(boundary, totalPages) + 1 + i
+    );
 
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-      for (let i = start; i <= end; i++) pages.push(i);
+    const leftSibling = Math.max(currentPage - siblings, boundary + 2);
+    const rightSibling = Math.min(currentPage + siblings, totalPages - boundary - 1);
 
-      if (currentPage < totalPages - 2) pages.push("...");
+    pages.push(...startPages);
 
-      pages.push(totalPages);
-    }
+    if (leftSibling > boundary + 2) pages.push("...");
+    else if (boundary + 1 < totalPages - boundary) pages.push(boundary + 1);
+
+    for (let p = leftSibling; p <= rightSibling; p++) pages.push(p);
+
+    if (rightSibling < totalPages - boundary - 1) pages.push("...");
+    else if (totalPages - boundary > boundary) pages.push(totalPages - boundary);
+
+    endPages.forEach((p) => {
+      if (!pages.includes(p)) pages.push(p);
+    });
 
     return pages;
-  };
+  }, [currentPage, totalPages]);
+
+  // Filter button toggles (replace checkboxes with buttons)
+  const toggleArrayValue = <T,>(list: T[], val: T) =>
+    list.includes(val) ? list.filter((x) => x !== val) : [...list, val];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <style jsx>{`
         button {
           cursor: pointer;
         }
       `}</style>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Breadcrumb */}
-        <nav className="flex items-center text-sm text-gray-600 mb-8">
+        <nav className="flex items-center text-sm text-gray-500 mb-6">
           <Link href="/" className="hover:text-gray-900 transition-colors">
             Home
           </Link>
-          <ChevronRight className="w-4 h-4 mx-2" />
+          <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
           <Link href="/products" className="hover:text-gray-900 transition-colors">
             Products
           </Link>
-          <ChevronRight className="w-4 h-4 mx-2" />
-          <span className="text-gray-900 font-medium">All Products</span>
+          <ChevronRight className="w-4 h-4 mx-2 text-gray-300" />
+          <span className="text-gray-900 font-semibold uppercase tracking-wide">All Products</span>
         </nav>
 
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Mobile Filter Button */}
+        <div className="flex flex-col lg:flex-row gap-10">
+          {/* Mobile Filter Toggle */}
           <div className="lg:hidden">
             <button
               onClick={() => setShowFilters((v) => !v)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg w-full justify-between"
+              className="flex items-center justify-between w-full border border-gray-200 bg-white px-4 py-3"
+              type="button"
             >
               <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4" />
-                <span className="font-medium">Filters</span>
+                <Filter className="w-4 h-4 text-gray-700" />
+                <span className="text-sm font-semibold uppercase tracking-wide text-gray-900">
+                  Filters
+                </span>
                 {activeFiltersCount > 0 && (
-                  <span className="w-6 h-6 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">
+                  <span className="ml-1 px-2 py-0.5 text-xs font-semibold bg-gray-900 text-white">
                     {activeFiltersCount}
                   </span>
                 )}
               </div>
-              <ChevronRight className={`w-4 h-4 transition-transform ${showFilters ? "rotate-90" : ""}`} />
+              <ChevronRight
+                className={`w-4 h-4 text-gray-700 transition-transform ${
+                  showFilters ? "rotate-90" : ""
+                }`}
+              />
             </button>
           </div>
 
@@ -522,229 +578,190 @@ export default function DynamicProductListingPage() {
           <AnimatePresence>
             {(showFilters || isDesktop) && (
               <motion.aside
-                initial={{ x: -20, opacity: 0 }}
+                initial={{ x: -14, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
-                exit={{ x: -20, opacity: 0 }}
-                className="lg:w-64 shrink-0"
+                exit={{ x: -14, opacity: 0 }}
+                className="lg:w-65 shrink-0"
               >
                 {isLoading ? (
                   <FilterSidebarSkeleton />
                 ) : (
-                  <div className="bg-white rounded-xl shadow-sm p-6 sticky top-8">
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-lg font-bold text-gray-900">Filters</h2>
+                  <div className="bg-white border border-gray-200 p-5 sticky top-8">
+                    <div className="flex items-center justify-between mb-5">
+                      <h2 className="text-sm font-bold uppercase tracking-widest text-gray-900">
+                        Filters
+                      </h2>
                       <button
                         onClick={clearAll}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                        className="text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-900"
+                        type="button"
                       >
-                        Clear all
+                        Clear
                       </button>
                     </div>
 
-                    {/* Search */}
-                    <div className="mb-6">
+                    {/* Search (enabled + refined) */}
+                    <div className="mb-5">
                       <div className="relative">
+                        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                           type="text"
-                          placeholder="Search products..."
+                          placeholder="Search products"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                          className="w-full border border-gray-200 pl-9 pr-9 py-2.5 text-sm outline-none focus:border-gray-400"
                         />
-                        {searchQuery && (
+                        {searchQuery.trim().length > 0 && (
                           <button
+                            type="button"
                             onClick={() => setSearchQuery("")}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                            aria-label="Clear search"
                           >
-                            ✕
+                            ×
                           </button>
                         )}
                       </div>
+                      {debouncedSearch && (
+                        <div className="mt-2 text-[11px] text-gray-500">
+                          Searching for: <span className="font-semibold text-gray-800">{debouncedSearch}</span>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Gender */}
-                    <div className="mb-6">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Gender</h3>
-                      <div className="space-y-2">
-                        {["all", "men", "women", "unisex"].map((g) => (
-                          <label key={g} className="flex items-center gap-3 cursor-pointer group">
-                            <input
-                              type="radio"
-                              name="gender"
-                              checked={gender === g}
-                              onChange={() => {
-                                setGender(g as Gender | "all");
-                                setCurrentPage(1);
-                              }}
-                              className="w-4 h-4 text-blue-600"
-                            />
-                            <span className="text-sm text-gray-700 capitalize group-hover:text-gray-900">
-                              {g === "all" ? "All Genders" : g}
-                            </span>
-                          </label>
+                    {/* Gender (buttons) */}
+                    <div className="border-t border-gray-100 pt-5 mb-5">
+                      <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">
+                        Gender
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {(["all", "men", "women", "unisex"] as const).map((g) => (
+                          <TogglePill
+                            key={g}
+                            active={gender === g}
+                            onClick={() => {
+                              setGender(g);
+                              setCurrentPage(1);
+                            }}
+                          >
+                            {g === "all" ? "All" : g}
+                          </TogglePill>
                         ))}
                       </div>
                     </div>
 
-                    {/* Brand */}
-                    {uniqueBrands.length > 0 && (
-                      <div className="mb-6">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Brand</h3>
-                        <div className="space-y-2">
-                          {uniqueBrands.map((brand) => (
-                            <label key={brand} className="flex items-center gap-3 cursor-pointer group">
-                              <input
-                                type="checkbox"
-                                checked={brands.includes(brand)}
-                                onChange={(e) => {
-                                  setBrands((prev) => (e.target.checked ? [...prev, brand] : prev.filter((b) => b !== brand)));
-                                  setCurrentPage(1);
-                                }}
-                                className="w-4 h-4 rounded border-gray-300 text-blue-600"
-                              />
-                              <span className="text-sm text-gray-700 group-hover:text-gray-900">{brand}</span>
-                            </label>
-                          ))}
-                        </div>
+                    {/* Price (buttons) */}
+                    <div className="border-t border-gray-100 pt-5 mb-5">
+                      <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">
+                        Price
                       </div>
-                    )}
-
-                    {/* ✅ Category */}
-                    {availableCategories.length > 0 && (
-                      <div className="mb-6">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Category</h3>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                          {availableCategories.map((category) => (
-                            <label
-                              key={category.slug}
-                              className="flex items-center justify-between gap-3 cursor-pointer group"
-                            >
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedCategories.includes(category.slug)}
-                                  onChange={(e) => {
-                                    setSelectedCategories((prev) =>
-                                      e.target.checked
-                                        ? [...prev, category.slug]
-                                        : prev.filter((slug) => slug !== category.slug)
-                                    );
-                                    setCurrentPage(1);
-                                  }}
-                                  className="w-4 h-4 rounded border-gray-300 text-blue-600"
-                                />
-                                <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                                  {category.name}
-                                </span>
-                              </div>
-
-                              {typeof category.productCount === "number" && (
-                                <span className="text-xs text-gray-400">{category.productCount} items</span>
-                              )}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Price */}
-                    <div className="mb-6">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Price Range</h3>
-                      <div className="space-y-2">
+                      <div className="flex flex-col gap-2">
                         {PRICE_RANGES.map((range) => (
-                          <label key={range.id} className="flex items-center gap-3 cursor-pointer group">
-                            <input
-                              type="checkbox"
-                              checked={priceIds.includes(range.id)}
-                              onChange={(e) => {
-                                setPriceIds((prev) =>
-                                  e.target.checked ? [...prev, range.id] : prev.filter((id) => id !== range.id)
-                                );
-                              }}
-                              className="w-4 h-4 rounded border-gray-300 text-blue-600"
-                            />
-                            <span className="text-sm text-gray-700 group-hover:text-gray-900">{range.label}</span>
-                          </label>
+                          <button
+                            key={range.id}
+                            type="button"
+                            onClick={() => setPriceIds((prev) => toggleArrayValue(prev, range.id))}
+                            className={[
+                              "h-9 px-3 border text-xs font-semibold tracking-wide text-left transition",
+                              priceIds.includes(range.id)
+                                ? "border-gray-900 text-gray-900 bg-gray-50"
+                                : "border-gray-200 text-gray-600 hover:border-gray-400",
+                            ].join(" ")}
+                          >
+                            {range.label}
+                          </button>
                         ))}
                       </div>
                     </div>
 
-                    {/* Size */}
-                    <div className="mb-6">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Size</h3>
+                    {/* Size (buttons already) */}
+                    <div className="border-t border-gray-100 pt-5 mb-5">
+                      <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">
+                        Size
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {SIZE_OPTIONS.map((size) => (
-                          <button
+                          <TogglePill
                             key={size}
-                            onClick={() =>
-                              setSizes((prev) => (prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]))
-                            }
-                            className={`px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${
-                              sizes.includes(size)
-                                ? "bg-blue-600 text-white border-blue-600"
-                                : "bg-gray-100 text-gray-700 border-gray-200 hover:border-gray-300"
-                            }`}
+                            active={sizes.includes(size)}
+                            onClick={() => setSizes((prev) => toggleArrayValue(prev, size))}
                           >
                             {size}
-                          </button>
+                          </TogglePill>
                         ))}
                       </div>
                     </div>
 
-                    {/* Color */}
-                    <div className="mb-6">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Color</h3>
-                      <div className="grid grid-cols-5 gap-3">
-                        {COLOR_OPTIONS.map((color) => (
-                          <button
-                            key={color.value}
-                            onClick={() =>
-                              setColors((prev) =>
-                                prev.includes(color.value) ? prev.filter((c) => c !== color.value) : [...prev, color.value]
-                              )
-                            }
-                            className="group relative"
-                            title={color.name}
-                            type="button"
-                          >
-                            <div
-                              className={`w-8 h-8 rounded-full border-2 transition-transform ${
-                                colors.includes(color.value) ? "scale-110 border-gray-900" : "border-gray-300 group-hover:border-gray-400"
-                              }`}
-                              style={{ backgroundColor: color.value }}
+                    {/* Color (buttons) */}
+                    <div className="border-t border-gray-100 pt-5">
+                      <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">
+                        Color
+                      </div>
+                      <div className="grid grid-cols-5 gap-2">
+                        {COLOR_OPTIONS.map((c) => {
+                          const active = colors.includes(c.value);
+                          return (
+                            <button
+                              key={c.value}
+                              type="button"
+                              title={c.name}
+                              onClick={() => setColors((prev) => toggleArrayValue(prev, c.value))}
+                              className="w-7 h-7 border border-gray-300"
+                              style={{
+                                backgroundColor: c.value,
+                                outline: active ? "2px solid #111827" : "none",
+                                outlineOffset: 2,
+                              }}
+                              aria-label={c.name}
                             />
-                            {colors.includes(color.value) && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-3 h-3 bg-white rounded-full" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
-                    {/* Active Filters */}
-                    {activeFiltersCount > 0 && (
-                      <div className="mt-6 pt-6 border-t border-gray-200">
-                        <div className="text-sm text-gray-600 mb-2">Active filters ({activeFiltersCount})</div>
-                        <div className="flex flex-wrap gap-2">
-                          {gender !== "all" && (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">{gender}</span>
-                          )}
-                          {brands.map((brand) => (
-                            <span key={brand} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                    {/* Brand (buttons) */}
+                    {uniqueBrands.length > 0 && (
+                      <div className="border-t border-gray-100 pt-5 mt-5">
+                        <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">
+                          Brand
+                        </div>
+                        <div className="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1">
+                          {uniqueBrands.map((brand) => (
+                            <TogglePill
+                              key={brand}
+                              active={brands.includes(brand)}
+                              onClick={() => {
+                                setBrands((prev) => toggleArrayValue(prev, brand));
+                                setCurrentPage(1);
+                              }}
+                              title={brand}
+                            >
                               {brand}
-                            </span>
+                            </TogglePill>
                           ))}
-                          {selectedCategories.map((slug) => (
-                            <span key={slug} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-                              {categoryNameBySlug.get(slug) || slug}
-                            </span>
-                          ))}
-                          {sizes.map((size) => (
-                            <span key={size} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-                              Size: {size}
-                            </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Category (buttons) */}
+                    {availableCategories.length > 0 && (
+                      <div className="border-t border-gray-100 pt-5 mt-5">
+                        <div className="text-xs font-bold uppercase tracking-widest text-gray-900 mb-3">
+                          Category
+                        </div>
+                        <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto pr-1">
+                          {availableCategories.map((category) => (
+                            <TogglePill
+                              key={category.slug}
+                              active={selectedCategories.includes(category.slug)}
+                              onClick={() => {
+                                setSelectedCategories((prev) => toggleArrayValue(prev, category.slug));
+                                setCurrentPage(1);
+                              }}
+                              title={category.name}
+                            >
+                              {category.name}
+                            </TogglePill>
                           ))}
                         </div>
                       </div>
@@ -757,57 +774,122 @@ export default function DynamicProductListingPage() {
 
           {/* Main Content */}
           <div className="flex-1">
-            {/* Header */}
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Topbar: refined select filter + view toggles */}
+            <div className="mb-5">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">All Products</h1>
-                  <p className="text-gray-600">
-                    {isLoading ? "Loading..." : `${totalCount} items found`}
-                    {activeFiltersCount > 0 && ` • ${activeFiltersCount} filter${activeFiltersCount > 1 ? "s" : ""} active`}
-                  </p>
+                  <h1 className="text-xl font-bold uppercase tracking-widest text-gray-900">
+                    All Products
+                  </h1>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {isLoading ? (
+                      <span className="inline-block h-3 w-24 bg-gray-200 animate-pulse align-middle" />
+                    ) : (
+                      `${totalCount} items`
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   {/* View Mode Toggle */}
-                  <div className="flex items-center border border-gray-300 rounded-lg">
+                  <div className="flex items-center border border-gray-200">
                     <button
                       onClick={() => setViewMode("grid")}
-                      className={`p-2 rounded-l-lg transition-colors ${
-                        viewMode === "grid" ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100"
-                      }`}
                       type="button"
+                      className={`p-2 ${
+                        viewMode === "grid"
+                          ? "bg-gray-900 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                      aria-label="Grid view"
                     >
-                      <Grid className="w-5 h-5" />
+                      <Grid className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setViewMode("list")}
-                      className={`p-2 rounded-r-lg transition-colors ${
-                        viewMode === "list" ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-100"
-                      }`}
                       type="button"
+                      className={`p-2 border-l border-gray-200 ${
+                        viewMode === "list"
+                          ? "bg-gray-900 text-white"
+                          : "bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                      aria-label="List view"
                     >
-                      <List className="w-5 h-5" />
+                      <List className="w-4 h-4" />
                     </button>
                   </div>
 
-                  {/* Sort */}
-                  <select
-                    value={sort}
-                    onChange={(e) => {
-                      setSort(e.target.value as any);
-                      setCurrentPage(1);
-                    }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  >
-                    <option value="featured">Featured</option>
-                    <option value="newest">Newest</option>
-                    <option value="popular">Most Popular</option>
-                    <option value="low">Price: Low to High</option>
-                    <option value="high">Price: High to Low</option>
-                  </select>
+                  {/* Refined sort select */}
+                  <div className="relative">
+                    <select
+                      value={sort}
+                      onChange={(e) => {
+                        setSort(e.target.value as any);
+                        setCurrentPage(1);
+                      }}
+                      className="appearance-none border border-gray-200 bg-white pl-3 pr-9 py-2 text-xs font-semibold uppercase tracking-wider text-gray-700 outline-none focus:border-gray-400"
+                    >
+                      <option value="featured">Featured</option>
+                      <option value="newest">Newest</option>
+                      <option value="popular">Most Popular</option>
+                      <option value="low">Price: Low to High</option>
+                      <option value="high">Price: High to Low</option>
+                    </select>
+                    <ChevronRight className="w-4 h-4 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+                  </div>
                 </div>
               </div>
+
+              {/* Active filter chips */}
+              {activeFiltersCount > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  {debouncedSearch && (
+                    <Chip label={`Search: ${debouncedSearch}`} onRemove={() => setSearchQuery("")} />
+                  )}
+                  {gender !== "all" && (
+                    <Chip label={`Gender: ${gender}`} onRemove={() => setGender("all")} />
+                  )}
+                  {brands.map((b) => (
+                    <Chip
+                      key={b}
+                      label={`Brand: ${b}`}
+                      onRemove={() => setBrands((prev) => prev.filter((x) => x !== b))}
+                    />
+                  ))}
+                  {selectedCategories.map((slug) => (
+                    <Chip
+                      key={slug}
+                      label={`Category: ${categoryNameBySlug.get(slug) || slug}`}
+                      onRemove={() => setSelectedCategories((prev) => prev.filter((x) => x !== slug))}
+                    />
+                  ))}
+                  {priceIds.map((pid) => (
+                    <Chip
+                      key={pid}
+                      label={`Price: ${PRICE_RANGES.find((r) => r.id === pid)?.label || pid}`}
+                      onRemove={() => setPriceIds((prev) => prev.filter((x) => x !== pid))}
+                    />
+                  ))}
+                  {sizes.map((s) => (
+                    <Chip label={`Size: ${s}`} key={s} onRemove={() => setSizes((prev) => prev.filter((x) => x !== s))} />
+                  ))}
+                  {colors.map((c) => (
+                    <Chip
+                      key={c}
+                      label={`Color`}
+                      onRemove={() => setColors((prev) => prev.filter((x) => x !== c))}
+                    />
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={clearAll}
+                    className="ml-auto border border-gray-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-gray-700 hover:border-gray-400"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Loading / Error / Empty / Results */}
@@ -818,33 +900,33 @@ export default function DynamicProductListingPage() {
                 <ProductListSkeleton />
               )
             ) : error ? (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-                <p className="text-red-600 font-medium mb-2">Error loading products</p>
-                <p className="text-red-500 text-sm">{error}</p>
+              <div className="border border-red-200 bg-red-50 p-6 text-center">
+                <p className="text-red-700 font-semibold text-sm mb-2">Error loading products</p>
+                <p className="text-red-600 text-xs">{error}</p>
                 <button
                   onClick={() => fetchProducts()}
-                  className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="mt-4 px-4 py-2 bg-gray-900 text-white text-xs font-semibold uppercase tracking-wider"
                   type="button"
                 >
-                  Try Again
+                  Retry
                 </button>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-                <div className="text-gray-400 mb-4">No products found</div>
-                <p className="text-gray-600 mb-6">Try adjusting your filters or search terms</p>
+              <div className="border border-gray-200 bg-white p-10 text-center">
+                <div className="text-gray-400 text-sm mb-2">No products found</div>
+                <p className="text-gray-600 text-xs mb-5">Try adjusting filters</p>
                 <button
                   onClick={clearAll}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-5 py-2 bg-gray-900 text-white text-xs font-semibold uppercase tracking-wider"
                   type="button"
                 >
-                  Clear All Filters
+                  Clear Filters
                 </button>
               </div>
             ) : (
               <>
                 {viewMode === "grid" ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                     {filtered.map((product) => (
                       <ProductCard
                         key={resolveApiProductId(product)}
@@ -871,46 +953,60 @@ export default function DynamicProductListingPage() {
                   </div>
                 )}
 
-                {/* Pagination */}
+                {/* Refined Pagination */}
                 {totalPages > 1 && (
-                  <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="text-sm text-gray-600">
-                      Showing {(currentPage - 1) * 12 + 1}-{Math.min(currentPage * 12, totalCount)} of {totalCount} products
+                  <div className="mt-10 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="text-xs text-gray-500">
+                      Showing {(currentPage - 1) * 12 + 1}-{Math.min(currentPage * 12, totalCount)} of{" "}
+                      {totalCount}
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="h-10 px-3 border border-gray-200 text-xs font-semibold uppercase tracking-widest text-gray-700 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                         type="button"
+                        aria-label="Previous page"
                       >
-                        ← Previous
+                        <ChevronLeft className="w-4 h-4" /> Prev
                       </button>
 
-                      {renderPagination().map((page, i) => (
-                        <button
-                          key={i}
-                          onClick={() => typeof page === "number" && handlePageChange(page)}
-                          disabled={page === "..."}
-                          className={`w-10 h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-colors ${
-                            page === currentPage
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "border-gray-300 text-gray-700 hover:border-gray-400"
-                          } ${page === "..." ? "pointer-events-none" : ""}`}
-                          type="button"
-                        >
-                          {page}
-                        </button>
-                      ))}
+                      <div className="flex items-center gap-1">
+                        {pagination.map((p, i) =>
+                          p === "..." ? (
+                            <span
+                              key={`dots-${i}`}
+                              className="w-10 h-10 inline-flex items-center justify-center text-gray-400 text-sm"
+                            >
+                              …
+                            </span>
+                          ) : (
+                            <button
+                              key={p}
+                              onClick={() => handlePageChange(p)}
+                              className={`w-10 h-10 border text-xs font-semibold uppercase tracking-widest transition ${
+                                p === currentPage
+                                  ? "bg-gray-900 text-white border-gray-900"
+                                  : "border-gray-200 text-gray-700 hover:border-gray-400"
+                              }`}
+                              type="button"
+                              aria-current={p === currentPage ? "page" : undefined}
+                            >
+                              {p}
+                            </button>
+                          )
+                        )}
+                      </div>
 
                       <button
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="h-10 px-3 border border-gray-200 text-xs font-semibold uppercase tracking-widest text-gray-700 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                         type="button"
+                        aria-label="Next page"
                       >
-                        Next →
+                        Next <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
@@ -938,146 +1034,124 @@ function ProductCard({
   onToggleWishlist: () => void;
   onAddToCart: () => void;
 }) {
-  const isOnSale = Boolean(product.pricing.discountPercentage && product.pricing.discountPercentage > 0);
   const currentPrice = product.pricing.current.value;
-  const originalPrice = product.pricing.original?.value || currentPrice;
+  const originalPrice = product.pricing.original?.value ?? currentPrice;
+  const isOnSale = originalPrice > currentPrice || (product.pricing.discountPercentage ?? 0) > 0;
 
   const productSlug = `/products/${resolveProductSlug(product)}`;
-  const cardIsOutOfStock = product.inventory.quantity <= 0;
-  const cardIsAddDisabled = cardIsOutOfStock || isInCart;
-  const addButtonClass = `mt-4 w-full py-2.5 flex items-center justify-center gap-2 text-sm font-medium rounded-lg transition-all duration-300 ${
-    cardIsAddDisabled
-      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-      : "bg-linear-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg"
-  }`;
-  const addButtonLabel = cardIsOutOfStock
-    ? "Out of Stock"
-    : isInCart
-    ? "In Cart"
-    : "Add to Cart";
+  const outOfStock = product.inventory.quantity <= 0;
+
+  // ✅ Out of stock disabled (both hover CTA and click)
+  const shopDisabled = outOfStock || isInCart;
+
+  const discountPercent =
+    typeof product.pricing.discountPercentage === "number"
+      ? product.pricing.discountPercentage
+      : originalPrice > currentPrice
+      ? Math.round(((originalPrice - currentPrice) / originalPrice) * 100)
+      : 0;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group relative bg-white rounded-xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 overflow-hidden"
+      transition={{ duration: 0.35 }}
+      className="group relative bg-white border border-gray-200 shadow-[0_1px_0_rgba(0,0,0,0.03)] hover:shadow-[0_10px_22px_rgba(0,0,0,0.10)] transition-shadow"
     >
-      <Link href={productSlug}>
-        <div className="relative h-64 overflow-hidden bg-linear-to-br from-gray-50 to-gray-100">
+      <Link href={productSlug} className="block">
+        <div className="relative h-56 bg-white overflow-hidden">
           <Image
             src={product.media.thumbnail || "/placeholder-image.jpg"}
             alt={product.name}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-contain p-6 transition-transform duration-300 group-hover:scale-[1.03]"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
 
-          <div className="absolute top-3 left-3 flex flex-col gap-2">
-            {product.isNew && (
-              <span className="px-3 py-1 bg-linear-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold rounded-full shadow-sm">
-                NEW
-              </span>
-            )}
-            {product.isBestseller && (
-              <span className="px-3 py-1 bg-linear-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-full shadow-sm">
-                BESTSELLER
-              </span>
-            )}
+          {/* top-right icons (hover) */}
+          <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleWishlist();
+              }}
+              type="button"
+              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-red-500"
+              aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            >
+              <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              type="button"
+              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-700"
+              aria-label="Compare"
+            >
+              <RefreshCcw className="w-5 h-5" />
+            </button>
           </div>
 
-          {isOnSale && (
-            <span className="absolute top-3 right-3 px-3 py-1 bg-linear-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full shadow-sm">
-              -{product.pricing.discountPercentage}%
-            </span>
-          )}
-
-          {product.inventory.quantity <= 0 && (
-            <span className="absolute top-3 right-3 px-3 py-1 bg-gray-800 text-white text-xs font-bold rounded-full shadow-sm">
-              OUT OF STOCK
-            </span>
-          )}
-
-            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4">
-              <button
-                className="w-full py-2.5 bg-linear-to-r from-blue-600 to-purple-600 text-white font-medium text-sm rounded-lg hover:shadow-lg transition-all"
-                type="button"
-              >
-                Quick View
-              </button>
+          {/* sale badge */}
+          {isOnSale && discountPercent > 0 && (
+            <div className="absolute left-3 top-28 -rotate-18 origin-left">
+              <div className="bg-red-600 text-white text-[11px] font-bold uppercase tracking-widest px-3 py-1 shadow">
+                Sale
+              </div>
             </div>
+          )}
+
+          {/* Out of stock chip (visible) */}
+          {outOfStock && (
+            <div className="absolute left-3 top-3">
+              <div className="bg-gray-900 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1">
+                Out of stock
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-4 pb-5 pt-3 text-center">
+          <div className="text-[11px] font-semibold uppercase tracking-widest text-gray-500">
+            {product.brand}
+          </div>
+
+          <div className="mt-2 text-xs text-gray-700 leading-snug line-clamp-2 min-h-8">
+            {product.name}
+          </div>
+
+          <div className="mt-3 flex items-baseline justify-center gap-2">
+            {isOnSale && (
+              <span className="text-xs text-gray-400 line-through">{formatTk(originalPrice)}</span>
+            )}
+            <span className="text-sm font-bold text-[#F84E25]">{formatTk(currentPrice)}</span>
+          </div>
         </div>
       </Link>
 
-      <button
-        onClick={onToggleWishlist}
-        className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-gray-700 hover:text-red-500 hover:bg-white transition-all shadow-sm z-10"
-        aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-        type="button"
-      >
-        <Heart className={`w-4 h-4 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
-      </button>
-
-      <div className="p-5">
-        <div className="mb-2">
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-            {product.brand} • {product.gender}
-          </span>
-        </div>
-
-        <Link href={productSlug}>
-          <h3 className="text-base font-semibold text-gray-900 mb-2 hover:text-blue-600 transition-colors line-clamp-1">
-            {product.name}
-          </h3>
-        </Link>
-
-        <div className="flex items-center gap-2 mb-4">
-          <div className="flex items-center">
-            {[...Array(5)].map((_, i) => (
-              <svg
-                key={i}
-                className={`w-4 h-4 ${
-                  i < Math.floor(product.ratings?.averageRating || 0) ? "text-yellow-400" : "text-gray-300"
-                }`}
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-              </svg>
-            ))}
-          </div>
-          <span className="text-sm font-medium text-gray-700">
-            {product.ratings?.averageRating?.toFixed(1) || "0.0"}
-          </span>
-          <span className="text-sm text-gray-500">({product.ratings?.totalReviews || 0})</span>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-2">
-            <span className="text-xl font-bold text-gray-900">{formatTk(currentPrice)}</span>
-            {isOnSale && <span className="text-sm text-gray-400 line-through">{formatTk(originalPrice)}</span>}
-          </div>
-
-          <div className="flex gap-1">
-            {(product.details?.colors || []).slice(0, 3).map((color, i) => (
-              <div key={i} className="w-4 h-4 rounded-full border border-gray-300" style={{ backgroundColor: color }} />
-            ))}
-            {product.details?.colors && product.details.colors.length > 3 && (
-              <div className="w-4 h-4 rounded-full bg-gray-100 border border-gray-300 text-xs flex items-center justify-center">
-                +{product.details.colors.length - 3}
-              </div>
-            )}
-          </div>
-        </div>
-
-                <button
-                  className={addButtonClass}
-                  disabled={cardIsAddDisabled}
-                  type="button"
-                  onClick={onAddToCart}
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  {addButtonLabel}
-                </button>
+      {/* hover CTA */}
+      <div className="px-4 pb-4">
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (shopDisabled) return;
+            onAddToCart();
+          }}
+          disabled={shopDisabled}
+          type="button"
+          className={[
+            "w-full h-11 uppercase tracking-widest text-xs font-bold transition",
+            shopDisabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#B8B8B8] text-white hover:bg-[#AFAFAF]",
+            "opacity-0 group-hover:opacity-100",
+          ].join(" ")}
+        >
+          {outOfStock ? "OUT OF STOCK" : isInCart ? "IN CART" : "SHOP NOW"}
+        </button>
       </div>
     </motion.div>
   );
@@ -1096,161 +1170,96 @@ function ProductListItem({
   onToggleWishlist: () => void;
   onAddToCart: () => void;
 }) {
-  const isOnSale = Boolean(product.pricing.discountPercentage && product.pricing.discountPercentage > 0);
   const currentPrice = product.pricing.current.value;
-  const originalPrice = product.pricing.original?.value || currentPrice;
-
-  const listIsOutOfStock = product.inventory.quantity <= 0;
-  const listIsAddDisabled = listIsOutOfStock || isInCart;
-  const listButtonClass = `px-6 py-2.5 flex items-center gap-2 font-medium rounded-lg transition-all duration-300 ${
-    listIsAddDisabled
-      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-      : "bg-linear-to-r from-blue-600 to-purple-600 text-white hover:shadow-lg"
-  }`;
-  const listButtonLabel = listIsOutOfStock
-    ? "Out of Stock"
-    : isInCart
-    ? "In Cart"
-    : "Add to Cart";
+  const originalPrice = product.pricing.original?.value ?? currentPrice;
+  const isOnSale = originalPrice > currentPrice || (product.pricing.discountPercentage ?? 0) > 0;
 
   const productSlug = `/products/${resolveProductSlug(product)}`;
+  const outOfStock = product.inventory.quantity <= 0;
+  const disabled = outOfStock || isInCart;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-200 overflow-hidden"
+      className="bg-white border border-gray-200 shadow-[0_1px_0_rgba(0,0,0,0.03)]"
     >
       <div className="flex flex-col md:flex-row">
         <Link href={productSlug} className="md:w-64 shrink-0">
-          <div className="relative h-64 md:h-full overflow-hidden bg-linear-to-br from-gray-50 to-gray-100">
+          <div className="relative h-56 md:h-full bg-white overflow-hidden">
             <Image
               src={product.media.thumbnail || "/placeholder-image.jpg"}
               alt={product.name}
               fill
-              className="object-cover"
+              className="object-contain p-6"
               sizes="(max-width: 768px) 100vw, 256px"
             />
-            <div className="absolute top-3 left-3 flex flex-col gap-2">
-              {product.isNew && (
-                <span className="px-3 py-1 bg-linear-to-r from-blue-500 to-cyan-500 text-white text-xs font-bold rounded-full shadow-sm">
-                  NEW
-                </span>
-              )}
-              {product.isBestseller && (
-                <span className="px-3 py-1 bg-linear-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-full shadow-sm">
-                  BESTSELLER
-                </span>
-              )}
-            </div>
           </div>
         </Link>
 
-        <div className="flex-1 p-6">
-          <div className="flex flex-col h-full">
-            <div className="flex-1">
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {product.brand} • {product.gender}
-                  </span>
-                  <Link href={productSlug}>
-                    <h3 className="text-xl font-semibold text-gray-900 mt-1 hover:text-blue-600 transition-colors">
-                      {product.name}
-                    </h3>
-                  </Link>
-                </div>
-
-                <button
-                  onClick={onToggleWishlist}
-                  className="text-gray-400 hover:text-red-500 transition-colors"
-                  aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
-                  type="button"
-                >
-                  <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
-                </button>
+        <div className="flex-1 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-widest text-gray-500">
+                {product.brand} • {product.gender}
               </div>
+              <Link href={productSlug} className="block mt-2">
+                <div className="text-sm font-semibold text-gray-900">{product.name}</div>
+              </Link>
 
-              <div className="flex items-center gap-4 mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center">
-                    {[...Array(5)].map((_, i) => (
-                      <svg
-                        key={i}
-                        className={`w-4 h-4 ${
-                          i < Math.floor(product.ratings?.averageRating || 0) ? "text-yellow-400" : "text-gray-300"
-                        }`}
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    ))}
-                  </div>
-                  <span className="text-sm font-medium text-gray-700">
-                    {product.ratings?.averageRating?.toFixed(1) || "0.0"} ({product.ratings?.totalReviews || 0} reviews)
+              <div className="mt-3 flex items-baseline gap-2">
+                {isOnSale && (
+                  <span className="text-xs text-gray-400 line-through">
+                    {formatTk(originalPrice)}
                   </span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-4 mb-6">
-                <div>
-                  <div className="text-sm text-gray-500 mb-1">Available Sizes</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {(product.details?.sizes || []).map((size) => (
-                      <span key={size} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded">
-                        {size}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-sm text-gray-500 mb-1">Available Colors</div>
-                  <div className="flex gap-2 flex-wrap">
-                    {(product.details?.colors || []).slice(0, 4).map((color, i) => (
-                      <div key={i} className="w-6 h-6 rounded-full border border-gray-300" style={{ backgroundColor: color }} />
-                    ))}
-                  </div>
-                </div>
+                )}
+                <span className="text-sm font-bold text-[#F84E25]">
+                  {formatTk(currentPrice)}
+                </span>
+                {outOfStock && (
+                  <span className="ml-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                    Out of stock
+                  </span>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-6 border-t border-gray-200">
-              <div>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-2xl font-bold text-gray-900">{formatTk(currentPrice)}</span>
+            <button
+              onClick={onToggleWishlist}
+              className="text-gray-400 hover:text-red-500"
+              aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+              type="button"
+            >
+              <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
+            </button>
+          </div>
 
-                  {isOnSale && (
-                    <>
-                      <span className="text-lg text-gray-400 line-through">{formatTk(originalPrice)}</span>
-                      <span className="px-2 py-1 bg-red-100 text-red-700 text-sm font-bold rounded">
-                        SAVE {product.pricing.discountPercentage}%
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              onClick={() => {
+                if (disabled) return;
+                onAddToCart();
+              }}
+              disabled={disabled}
+              type="button"
+              className={`h-10 px-5 uppercase tracking-widest text-xs font-bold ${
+                disabled
+                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  : "bg-[#B8B8B8] text-white hover:bg-[#AFAFAF]"
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <ShoppingBag className="w-4 h-4" />
+                {outOfStock ? "OUT OF STOCK" : isInCart ? "IN CART" : "SHOP NOW"}
+              </span>
+            </button>
 
-              <div className="flex gap-3">
-                <button
-                  className={listButtonClass}
-                  disabled={listIsAddDisabled}
-                  type="button"
-                  onClick={onAddToCart}
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  {listButtonLabel}
-                </button>
-
-                <Link
-                  href={productSlug}
-                  className="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  View Details
-                </Link>
-              </div>
-            </div>
+            <Link
+              href={productSlug}
+              className="h-10 px-5 border border-gray-200 uppercase tracking-widest text-xs font-bold text-gray-700 hover:border-gray-400 inline-flex items-center"
+            >
+              View details
+            </Link>
           </div>
         </div>
       </div>

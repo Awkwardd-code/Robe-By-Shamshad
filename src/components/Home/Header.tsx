@@ -252,11 +252,12 @@ const Button = ({
         sale: "bg-[#C41E3A] text-white hover:bg-[#D63B54] focus:ring-[#C41E3A]/30"
     }[variant];
 
-    const { onDrag, onDragStart, onDragEnd, onAnimationStart, onAnimationEnd, ...restProps } = props;
+    const { onDrag, onDragStart, onDragEnd, onAnimationStart, onAnimationEnd, className, ...restProps } = props;
+    const classes = `${base} ${sizes} ${variants}${className ? ` ${className}` : ""}`;
 
     if (loading) {
         return (
-            <div className={`${base} ${sizes} ${variants}`}>
+            <div className={classes}>
                 <Skeleton className="h-4 w-full rounded" />
             </div>
         );
@@ -266,7 +267,7 @@ const Button = ({
         <motion.button
             whileHover={{ y: -2 }}
             whileTap={{ y: 0 }}
-            className={`${base} ${sizes} ${variants}`}
+            className={classes}
             {...restProps}
         >
             {LeftIcon ? <LeftIcon className="h-4 w-4" /> : null}
@@ -438,7 +439,7 @@ const SearchPanel = ({
                         className="mb-3 text-sm font-semibold text-[#1F1B18]"
                         style={{ fontFamily: FONTS.nav }}
                     >
-                        Recent Searches
+                        Recent Searches 
                     </h3>
                     <div className="flex flex-wrap gap-2">
                         {recentSearches.map((term) => (
@@ -790,7 +791,7 @@ const CartPanel = ({
                                     href="/cart"
                                     className="inline-flex h-9 items-center justify-center rounded-lg border border-[#E7E2DE] bg-transparent px-4 text-xs font-semibold uppercase tracking-[0.3em] text-[#1F1B18] transition-colors hover:border-[#C41E3A] hover:bg-[#F5EFE9]"
                                 >
-                                    View Cart
+                                    View Cart 
                                 </Link>
                                 <Link
                                     href="/checkout"
@@ -830,14 +831,18 @@ const ProfileDropdown = ({
     user,
     isOpen,
     onClose,
+    onLogout,
     topOffset,
     loading = false,
+    logoutLoading = false,
 }: {
     user: AuthUser | null;
     isOpen: boolean;
     onClose: () => void;
+    onLogout: () => void;
     topOffset: number;
     loading?: boolean;
+    logoutLoading?: boolean;
 }) => {
     useEscToClose(isOpen, onClose);
 
@@ -1026,13 +1031,16 @@ const ProfileDropdown = ({
                                     )}
                                 </div>
 
-                                <div className="border-t border-[#E7E2DE] px-5 py-4">
+                                <div className="border-t border-[#E7E2DE] bg-linear-to-r from-[#FDF4F2] via-white to-[#FDF4F2] px-5 py-4">
                                     <Button
                                         type="button"
-                                        variant="secondary"
-                                        className="w-full"
-                                        onClick={onClose}
-                                        loading={loading}
+                                        variant="sale"
+                                        size="sm"
+                                        className="w-full uppercase tracking-[0.28em] text-[11px] shadow-sm hover:shadow-md"
+                                        onClick={onLogout}
+                                        leftIcon={LogOut}
+                                        loading={logoutLoading}
+                                        disabled={logoutLoading}
                                     >
                                         Sign Out
                                     </Button>
@@ -1149,13 +1157,14 @@ export default function Header() {
 
     const [activePanel, setActivePanel] = useState<string | null>(null);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [panelTop, setPanelTop] = useState(88);
     const [scrolled, setScrolled] = useState(false);
     const [categoryOptions, setCategoryOptions] = useState<CategoryMeta[]>([]);
     const [isCategoriesLoading, setIsCategoriesLoading] = useState(true);
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { user, isLoading: authLoading } = useAuth();
+    const { user, isLoading: authLoading, refreshUser, setUser } = useAuth();
     const { cartItems, wishlistItems, isLoading: commerceLoading } = useCommerce();
     const activeCategorySlugs = searchParams.getAll("category");
 
@@ -1259,17 +1268,40 @@ export default function Header() {
         setMobileMenuOpen(false);
     };
 
-    const handleProfileClick = () => {
+    const handleProfileClick = async () => {
         if (user || authLoading) {
             togglePanel("profile");
             return;
         }
-        router.push("/login");
+        togglePanel("profile");
+        const profile = await refreshUser(true);
+        if (!profile) {
+            closeAll();
+            router.push("/login");
+        }
     };
 
     const closeAll = () => {
         setActivePanel(null);
         setMobileMenuOpen(false);
+    };
+
+    const handleLogout = async () => {
+        if (isLoggingOut) return;
+        setIsLoggingOut(true);
+        try {
+            const response = await fetch("/api/auth/logout", { method: "POST" });
+            if (!response.ok) {
+                throw new Error("Logout failed");
+            }
+            setUser(null);
+            closeAll();
+            router.push("/login");
+        } catch (error) {
+            console.error("Logout failed", error);
+        } finally {
+            setIsLoggingOut(false);
+        }
     };
 
     const isNavActive = (href: string) => {
@@ -1291,7 +1323,7 @@ export default function Header() {
                     }`}
             >
                 {/* Main Header Bar */}
-                <div className="container mx-auto px-3 py-2">
+                <div className="container mx-auto px-3 py-0.5">
                     <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
                         {/* Logo (left) - Visible on all devices */}
                         <Link href="/" className="flex items-center gap-2" onClick={closeAll}>
@@ -1500,8 +1532,8 @@ export default function Header() {
                 {/* Desktop Navigation Bar */}
                 <div className="hidden md:block border-t border-[#E7E2DE]/10 bg-white/95">
                     <div className="container mx-auto px-0">
-                        <nav className="flex items-center justify-center py-2">
-                            <div className="relative w-[90%]">
+                        <nav className="flex items-center justify-center py-0.5">
+                            <div className="relative w-[80%]">
                                 {/* Subtle navigation container */}
                                 <div className="relative overflow-x-auto py-1 scrollbar-hide">
                                     <div className="flex items-center justify-center gap-0.5 min-w-max mx-auto px-4">
@@ -1642,10 +1674,6 @@ export default function Header() {
                                         )}
                                     </div>
                                 </div>
-
-                                {/* Navigation scroll indicators (only visible when content overflows) */}
-                                <div className="absolute -left-1 top-0 bottom-0 w-8 bg-linear-to-r from-white via-white/90 to-transparent pointer-events-none" />
-                                <div className="absolute -right-1 top-0 bottom-0 w-8 bg-linear-to-l from-white via-white/90 to-transparent pointer-events-none" />
                             </div>
                         </nav>
                     </div>
@@ -1653,10 +1681,12 @@ export default function Header() {
 
                 {/* Mobile Navigation Bar */}
                 <div className="md:hidden border-t border-[#E7E2DE]/30 bg-white/95">
-                    <div className="container mx-auto px-4 py-2">
+                    <div className="container mx-auto px-4 py-0.5">
                         <nav className="flex items-center justify-center">
-                            <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-full">
-                                {isCategoriesLoading ? (
+                            <div className="relative w-[80%]">
+                                <div className="relative overflow-x-auto py-1 scrollbar-hide">
+                                    <div className="flex items-center justify-center gap-1.5 min-w-max mx-auto px-2">
+                                        {isCategoriesLoading ? (
                                     // Skeleton for mobile nav items
                                     Array.from({ length: 4 }).map((_, index) => (
                                         <div key={index} className="px-3 py-1.5">
@@ -1728,7 +1758,9 @@ export default function Header() {
                                             </motion.div>
                                         );
                                     })
-                                )}
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </nav>
                     </div>
@@ -1759,8 +1791,10 @@ export default function Header() {
                 user={user}
                 isOpen={activePanel === "profile"}
                 onClose={closeAll}
+                onLogout={handleLogout}
                 topOffset={profilePanelTop}
                 loading={authLoading}
+                logoutLoading={isLoggingOut}
             />
 
             {/* Mobile Drawer */}

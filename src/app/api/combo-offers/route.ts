@@ -147,6 +147,8 @@ export async function GET(request: NextRequest) {
           thumbnail: 1,
           gallery: 1,
           delivery: 1,
+          rating: 1,
+          reviewsCount: 1,
           createdAt: 1,
           updatedAt: 1,
           savings: 1,
@@ -327,6 +329,8 @@ export async function POST(request: Request) {
       thumbnail: thumbnail?.trim() || '',
       gallery: Array.isArray(gallery) ? gallery : [],
       delivery: deliveryData,
+      rating: 0,
+      reviewsCount: 0,
       createdAt: new Date(),
       updatedAt: new Date()
     };

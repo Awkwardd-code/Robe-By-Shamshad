@@ -33,6 +33,8 @@ interface BestSellerProduct {
   reviewCount: number;
   category: string;
   salesCount: number;
+  description?: string;
+  shortDescription?: string;
   tags?: string[];
   inventory?: { quantity: number; status: string };
 }
@@ -56,6 +58,7 @@ const safeNumber = (value?: string | number, fallback = 0): number => {
 };
 
 const normalizeProductDoc = (doc: any): BestSellerProduct => {
+  const base = doc && typeof doc === "object" ? doc : {};
   const slug = doc?.slug || doc?._id?.toString() || "product";
   const current = safeNumber(doc?.pricing?.current?.value, 0);
   const original = safeNumber(doc?.pricing?.original?.value, current);
@@ -63,16 +66,20 @@ const normalizeProductDoc = (doc: any): BestSellerProduct => {
     original > 0 && current < original
       ? Math.round(((original - current) / original) * 100).toString()
       : undefined;
+  const tags = Array.isArray(doc?.tags) ? doc.tags : undefined;
 
   // Calculate sales count (for demo, use review count + random)
   const salesCount = doc?.salesCount || 
     Math.floor((doc?.ratings?.totalReviews || 0) * 10 + Math.random() * 100);
 
   return {
+    ...base,
     id: doc?._id?.toString() || slug,
     name: doc?.name || "Untitled Product",
     slug,
     image: doc?.media?.thumbnail || doc?.media?.gallery?.[0] || FALLBACK_IMAGE,
+    price: current,
+    oldPrice: Math.max(original, current),
     originalPrice: formatCurrencyValue(Math.max(original, current)),
     currentPrice: formatCurrencyValue(current),
     priceValue: current,
@@ -82,24 +89,18 @@ const normalizeProductDoc = (doc: any): BestSellerProduct => {
     reviewCount: safeNumber(doc?.ratings?.totalReviews, 0),
     category: doc?.category || doc?.categoryDetails?.name || "Products",
     salesCount,
-    tags: doc?.tags || [],
+    ...(Array.isArray(tags) ? { tags } : {}),
     inventory: doc?.inventory || { quantity: 10, status: "in_stock" }
   };
 };
 
-const toCommerceProduct = (product: BestSellerProduct): CommerceProduct => {
-  return {
-    id: product.id,
-    name: product.name,
-    slug: product.slug,
-    image: product.image,
-    price: product.priceValue,
-    oldPrice: product.originalPriceValue,
-    category: product.category,
-    description: "Best seller product - " + product.name,
-    shortDescription: "Top selling item"
-  };
-};
+const toCommerceProduct = (product: BestSellerProduct): CommerceProduct => ({
+  ...product,
+  price: product.priceValue,
+  oldPrice: product.originalPriceValue,
+  description: product.description ?? `Best seller product - ${product.name}`,
+  shortDescription: product.shortDescription ?? "Top selling item",
+});
 
 const BestSellerSkeleton = ({ count }: { count: number }) => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">

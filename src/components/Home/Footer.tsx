@@ -307,7 +307,7 @@ export default function Footer() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email address"
+                      placeholder="Enter your email "
                       className={`w-full px-4 py-3 ${cardBgColor} ${borderColor} border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-gray-900 placeholder-gray-400 transition-colors duration-300`}
                       required
                       variants={formInputVariants}

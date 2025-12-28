@@ -10,8 +10,10 @@ import {
 } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { Star, Sparkles, ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+
+// NOTE: No static category labels. Everything uses your incoming `categories` data.
 
 export interface CategoryItem {
   id: string;
@@ -23,25 +25,82 @@ export interface CategoryItem {
 }
 
 const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1544441893-675973e31985?w=400&h=400&fit=crop";
+  "https://images.unsplash.com/photo-1544441893-675973e31985?w=800&h=500&fit=crop";
 
 interface CategorySliderProps {
-  categories: CategoryItem[];
-  autoPlayInterval?: number;
+  categories?: CategoryItem[];
   title?: string;
-  description?: string;
-  isLoading?: boolean; // optional: let parent show skeleton while server fetches (usually not needed)
+  autoPlayInterval?: number;
+  isLoading?: boolean;
+}
+
+const PASTEL_BG = ["#BDDCE7", "#FCD2DC", "#A2CFE8", "#F7F0DC"]; // matches the reference tiles
+
+// Tiny helper: subtle shadow under product cutout feel
+const shadowStyle =
+  "drop-shadow-[0_18px_22px_rgba(0,0,0,0.18)] drop-shadow-[0_6px_10px_rgba(0,0,0,0.12)]";
+
+function MiniTileSkeleton({
+  count,
+  itemsPerView,
+}: {
+  count: number;
+  itemsPerView: number;
+}) {
+  const safeItemsPerView = Math.max(itemsPerView, 1);
+  const tileWidthPercent = 100 / safeItemsPerView;
+  const gapOffset = safeItemsPerView > 1 ? 12 : 0;
+
+  return (
+    <div className="w-full overflow-hidden">
+      <div className="flex gap-3 sm:gap-4">
+        {Array.from({ length: count }).map((_, i) => (
+          <div
+            key={i}
+            className="relative shrink-0 overflow-hidden"
+            style={{
+              minWidth: `calc(${tileWidthPercent}% - ${gapOffset}px)`,
+              background: PASTEL_BG[i % PASTEL_BG.length],
+              height: 150,
+            }}
+          >
+            <div className="absolute left-3 top-3">
+              <div className="h-4 w-20 bg-black/10 rounded-sm animate-pulse" />
+              <div className="mt-1 h-2 w-14 bg-black/10 rounded-sm animate-pulse" />
+            </div>
+
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-20 w-28 bg-black/10 rounded-xl animate-pulse" />
+            </div>
+
+            <div className="absolute inset-0 bg-white/0">
+              <motion.div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)",
+                }}
+                animate={{ x: ["-120%", "120%"] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function CategorySlider({
   categories,
+  title,
   autoPlayInterval = 5000,
-  title = "Shop By Category",
-  description = "Browse through our extensive collection of categories",
   isLoading = false,
 }: CategorySliderProps) {
   const router = useRouter();
 
+  const [remoteCategories, setRemoteCategories] = useState<CategoryItem[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [isHovering, setIsHovering] = useState(false);
@@ -49,14 +108,13 @@ export default function CategorySlider({
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
-  // Responsive items per view
   const getItemsPerView = () => {
     if (typeof window === "undefined") return 4;
     const width = window.innerWidth;
-    if (width < 640) return 1; // Mobile
-    if (width < 768) return 2; // Tablet
-    if (width < 1024) return 3; // Laptop
-    return 4; // Desktop
+    if (width < 640) return 1;
+    if (width < 768) return 2;
+    if (width < 1024) return 3;
+    return 4;
   };
 
   const [itemsPerView, setItemsPerView] = useState(getItemsPerView());
@@ -66,6 +124,111 @@ export default function CategorySlider({
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const shouldFetch = categories === undefined;
+  const slideCategories = shouldFetch ? remoteCategories : categories ?? [];
+  const isLoadingResolved = isLoading || (shouldFetch && isFetching);
+
+  useEffect(() => {
+    if (!shouldFetch) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadCategories = async () => {
+      setIsFetching(true);
+      try {
+        const response = await fetch("/api/categories?limit=12", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to load categories (${response.status})`);
+        }
+
+        const payload = await response.json();
+        const list = Array.isArray(payload?.categories) ? payload.categories : [];
+
+        const mapped = list
+          .map((category: any, index: number) => {
+            const slug =
+              typeof category?.slug === "string" ? category.slug.trim() : "";
+            if (!slug) return null;
+
+            const rawId = category?._id;
+            const id =
+              typeof rawId === "string"
+                ? rawId
+                : rawId?.toString?.() ??
+                  rawId?.$oid ??
+                  slug ??
+                  `category-${index}`;
+
+            const image =
+              typeof category?.image === "string" && category.image.trim()
+                ? category.image
+                : FALLBACK_IMAGE;
+
+            const name =
+              typeof category?.name === "string" && category.name.trim()
+                ? category.name
+                : slug;
+
+            const productCount = Number.isFinite(category?.productCount)
+              ? Number(category.productCount)
+              : 0;
+
+            const description =
+              typeof category?.description === "string" &&
+              category.description.trim()
+                ? category.description
+                : undefined;
+
+            return {
+              id,
+              name,
+              slug,
+              image,
+              productCount,
+              description,
+            } satisfies CategoryItem;
+          })
+          .filter(Boolean) as CategoryItem[];
+
+        if (!cancelled) {
+          setRemoteCategories(mapped);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Failed to load categories for slider:", error);
+          setRemoteCategories([]);
+        }
+      } finally {
+        if (!cancelled) setIsFetching(false);
+      }
+    };
+
+    void loadCategories();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [shouldFetch]);
+
+  const maxIndex = useMemo(
+    () => Math.max(slideCategories.length - itemsPerView, 0),
+    [slideCategories.length, itemsPerView]
+  );
+
+  useEffect(() => {
+    setCurrentIndex((prev) => Math.min(prev, maxIndex));
+  }, [maxIndex]);
+
+  const safeIndex = Math.min(currentIndex, maxIndex);
+  const slideWidthPercent = 100 / itemsPerView;
+  const translatePercent = safeIndex * slideWidthPercent;
 
   const handleCategorySelect = useCallback(
     (categorySlug: string) => {
@@ -83,23 +246,6 @@ export default function CategorySlider({
     },
     [handleCategorySelect]
   );
-
-  const slideCategories = categories ?? [];
-
-  const maxIndex = useMemo(
-    () => Math.max(slideCategories.length - itemsPerView, 0),
-    [slideCategories.length, itemsPerView]
-  );
-
-  // keep index valid when resizing or categories length changes
-  useEffect(() => {
-    setCurrentIndex((prev) => Math.min(prev, maxIndex));
-  }, [maxIndex]);
-
-  const safeIndex = Math.min(currentIndex, maxIndex);
-  const slideWidthPercent = 100 / itemsPerView;
-  const translatePercent = safeIndex * slideWidthPercent;
-  const skeletonCount = Math.max(itemsPerView, 4);
 
   const nextSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
@@ -146,231 +292,157 @@ export default function CategorySlider({
     return () => clearInterval(interval);
   }, [isAutoPlaying, nextSlide, autoPlayInterval, slideCategories.length, itemsPerView, isHovering]);
 
-  const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: { delay: i * 0.1, duration: 0.6, ease: [0.25, 0.1, 0.25, 1] },
-    }),
-  };
-
+  // === Reference-style tile: text is minimal + only appears as overlay on hover ===
+  // - Default: show logo-ish lockup top-left (category name in a "logo-like" style)
+  // - Hover: show title + description + CTA, and redirect on click
   return (
-    <div
-      className="relative w-4/5 mx-auto py-10 md:py-16 overflow-hidden"
+    <section
+      className="relative w-full py-8 md:py-10 overflow-hidden"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
+      aria-label="Category strip"
     >
-      {/* Animated background gradient */}
-      <div className="absolute inset-0 overflow-hidden">
-        <motion.div
-          className="absolute inset-0 opacity-30"
-          animate={{
-            background: [
-              "radial-gradient(circle at 0% 50%, rgba(201, 169, 110, 0.1) 0%, transparent 50%)",
-              "radial-gradient(circle at 100% 50%, rgba(212, 175, 55, 0.1) 0%, transparent 50%)",
-              "radial-gradient(circle at 50% 0%, rgba(183, 110, 121, 0.1) 0%, transparent 50%)",
-              "radial-gradient(circle at 0% 50%, rgba(201, 169, 110, 0.1) 0%, transparent 50%)",
-            ],
-          }}
-          transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-        />
-      </div>
-
-      {/* Header */}
-      <div className="relative mb-12 text-center px-4">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 mb-3"
-        >
-          <Sparkles className="w-5 h-5 text-amber-500" />
-          <span className="text-sm font-semibold text-amber-600 uppercase tracking-wider">
-            Collections
-          </span>
-          <Sparkles className="w-5 h-5 text-amber-500" />
-        </motion.div>
-
-        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
-          <span className="bg-linear-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent">
+      {title ? (
+        <div className="px-4 sm:px-6">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-wide text-[#1F1B18]">
             {title}
-          </span>
-        </h2>
+          </h2>
+        </div>
+      ) : null}
 
-        <p className="text-gray-600 max-w-2xl mx-auto text-lg">{description}</p>
-      </div>
+      <div className="relative px-4 sm:px-6">
+        <div
+          className="overflow-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {isLoadingResolved ? (
+            <MiniTileSkeleton
+              count={itemsPerView === 1 ? 1 : Math.max(itemsPerView, 4)}
+              itemsPerView={itemsPerView}
+            />
+          ) : (
+            <motion.div
+              className="flex gap-3 sm:gap-4 will-change-transform touch-none"
+              animate={{ x: `-${translatePercent}%` }}
+              transition={{ type: "spring", stiffness: 300, damping: 30, mass: 1 }}
+            >
+              {slideCategories.map((category, index) => {
+                const bg = PASTEL_BG[index % PASTEL_BG.length];
 
-      {/* Slider */}
-      <div className="relative px-4 sm:px-6 lg:px-8">
-        <div className="relative py-8">
-          <div
-            className="overflow-hidden px-4 md:px-0"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
-            {isLoading ? (
-              <div className="flex gap-4 md:gap-6 lg:gap-8">
-                {Array.from({ length: skeletonCount }).map((_, idx) => (
-                  <div
-                    key={`skeleton-${idx}`}
-                    className="relative shrink-0 rounded-3xl border border-gray-100 bg-white/50 shadow-inner"
+                return (
+                  <motion.div
+                    key={category.id}
+                    className="relative shrink-0"
                     style={{ minWidth: `${slideWidthPercent}%` }}
+                    whileHover={{ y: -2 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    <div className="h-40 md:h-48 lg:h-56 overflow-hidden rounded-t-3xl bg-gray-200/70 animate-pulse" />
-                    <div className="p-6 md:p-8 space-y-3 animate-pulse">
-                      <div className="h-6 w-3/4 rounded-full bg-gray-200" />
-                      <div className="h-4 w-full rounded-full bg-gray-200/80" />
-                      <div className="h-3 w-1/2 rounded-full bg-gray-200/60" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <motion.div
-                className="flex gap-4 md:gap-6 lg:gap-8 will-change-transform touch-none relative"
-                animate={{ x: `-${translatePercent}%` }}
-                transition={{ type: "spring", stiffness: 300, damping: 30, mass: 1 }}
-              >
-                <AnimatePresence mode="wait">
-                  {slideCategories.map((category, index) => (
-                    <motion.div
-                      key={category.id}
-                      className="relative group shrink-0"
-                      style={{ minWidth: `${slideWidthPercent}%` }}
-                      variants={itemVariants}
-                      initial="hidden"
-                      animate="visible"
-                      custom={index % itemsPerView}
-                      whileHover={{ y: -8 }}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleCategorySelect(category.slug)}
+                      onKeyDown={(event) => handleCardKeyDown(event, category.slug)}
+                      aria-label={`Open ${category.name}`}
+                      className="group relative h-37.5 sm:h-40 md:h-42.5 w-full overflow-hidden cursor-pointer"
+                      style={{ background: bg }}
                     >
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleCategorySelect(category.slug)}
-                        onKeyDown={(event) => handleCardKeyDown(event, category.slug)}
-                        aria-label={`Explore ${category.name} collection`}
-                        className="relative overflow-hidden rounded-3xl bg-white shadow-lg
-                                  hover:shadow-2xl transition-all duration-500
-                                  group-hover:shadow-amber-100/50 border border-gray-100
-                                  h-full flex flex-col cursor-pointer"
-                      >
-                        <div className="relative h-40 md:h-48 lg:h-56 overflow-hidden rounded-t-3xl">
+                      {/* Top-left "logo lockup" */}
+                      <div className="absolute left-3 top-3 z-1 leading-none">
+                        <div
+                          className="text-[13px] sm:text-[14px] font-black uppercase tracking-tight text-black/90"
+                          style={{
+                            // give it a "logo-ish" compact feel
+                            letterSpacing: "-0.02em",
+                          }}
+                        >
+                          {category.name}
+                        </div>
+                        {/* microline like reference */}
+                        <div className="mt-0.5 text-[8px] uppercase tracking-[0.45em] text-black/70">
+                          {/* from data only: use productCount to avoid static words */}
+                          {String(category.productCount).padStart(2, "0")} ITEMS
+                        </div>
+                      </div>
+
+                      {/* Product image: large, centered, editorial crop */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="relative h-30 w-[92%]">
                           <Image
                             src={category.image || FALLBACK_IMAGE}
                             alt={category.name}
                             fill
-                            className="object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
                             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                            className={`object-contain ${shadowStyle} transition-transform duration-500 ease-out group-hover:scale-[1.03]`}
                           />
-
-                          <div className="absolute inset-0 bg-linear-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                          <div className="absolute inset-0 bg-linear-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="absolute top-4 right-4 backdrop-blur-xl bg-white/90 px-4 py-2 rounded-full shadow-lg"
-                          >
-                            <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
-                              <span className="text-amber-600">{category.productCount}</span>
-                              <span className="text-gray-600">items</span>
-                            </span>
-                          </motion.div>
-
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                            <motion.span
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="inline-flex items-center gap-2 bg-white/90 backdrop-blur-sm px-6 py-3 rounded-full text-gray-900 font-semibold shadow-xl"
-                            >
-                              Shop Now <ArrowRight className="w-4 h-4" />
-                            </motion.span>
-                          </div>
                         </div>
-
-                        <div className="p-6 md:p-8 flex-1 flex flex-col">
-                          <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-3 line-clamp-1">
-                            {category.name}
-                          </h3>
-
-                          {category.description && (
-                            <p className="text-gray-600 mb-6 flex-1 line-clamp-2">
-                              {category.description}
-                            </p>
-                          )}
-
-                          <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
-                            <span className="text-sm font-semibold text-amber-600 group-hover:text-amber-700 transition-colors flex items-center gap-2">
-                              Explore Collection
-                              <motion.span
-                                animate={{ x: [0, 4, 0] }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                              >
-                                <ArrowRight className="w-4 h-4" />
-                              </motion.span>
-                            </span>
-
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                                ))}
-                              </div>
-                              <span className="text-sm font-medium text-gray-700">4.5</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="absolute inset-0 rounded-3xl border-2 border-transparent group-hover:border-amber-400/30 transition-colors duration-300 pointer-events-none" />
-                        <div className="absolute inset-0 rounded-3xl shadow-inner opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
                       </div>
 
-                      {[...Array(3)].map((_, i) => (
-                        <motion.div
-                          key={i}
-                          className="absolute w-1 h-1 rounded-full bg-amber-400/30"
-                          style={{ top: `${20 + i * 20}%`, left: `${10 + i * 40}%` }}
-                          animate={{ y: [0, -10, 0], opacity: [0.3, 0.8, 0.3] }}
-                          transition={{ duration: 2 + i, repeat: Infinity, delay: i * 0.5 }}
-                        />
-                      ))}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </motion.div>
-            )}
-          </div>
+                      {/* Hover overlay: show title + description + link hint (no static text) */}
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        {/* soft dark overlay for readability */}
+                        <div className="absolute inset-0 bg-black/35" />
+                        {/* subtle sheen */}
+                        <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent,rgba(255,255,255,0.10),transparent)]" />
 
-          <div className="flex justify-center mt-10">
+                        <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
+                          <div className="max-w-[90%] text-white">
+                            <div className="text-sm sm:text-base font-extrabold uppercase tracking-wider">
+                              {category.name}
+                            </div>
+
+                            {/* Description from data only */}
+                            {category.description ? (
+                              <div className="mt-2 text-xs sm:text-sm text-white/90 line-clamp-2">
+                                {category.description}
+                              </div>
+                            ) : (
+                              <div className="mt-2 text-xs sm:text-sm text-white/90">
+                                {category.productCount} products available
+                              </div>
+                            )}
+
+                            {/* “Redirect hint” derived from slug (not static CTA copy) */}
+                            <button
+                              type="button"
+                              className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-[11px] sm:text-xs font-semibold text-black"
+                            >
+                              Shop now
+                              <ArrowRight className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Thin inner border like printed tiles */}
+                      <div className="absolute inset-0 border border-black/5 pointer-events-none" />
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          )}
+        </div>
+
+        {/* Minimal indicators (no static labels) */}
+        {!isLoadingResolved && maxIndex > 0 && (
+          <div className="mt-6 flex justify-center">
             <div className="flex items-center gap-2">
               {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
                 <button
                   key={idx}
                   onClick={() => goToSlide(idx)}
-                  className="relative group cursor-pointer"
-                  aria-label={`Go to slide ${idx + 1}`}
-                >
-                  <div
-                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                      idx === safeIndex ? "bg-amber-600 w-8" : "bg-gray-300 hover:bg-gray-400"
-                    }`}
-                  />
-                  {idx === safeIndex && (
-                    <motion.div
-                      layoutId="activeIndicator"
-                      className="absolute inset-0 rounded-full bg-amber-600"
-                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    />
-                  )}
-                </button>
+                  aria-label={`Go to position ${idx + 1}`}
+                  className={`h-2 rounded-full transition-all ${
+                    idx === safeIndex ? "w-8 bg-black/70" : "w-2 bg-black/20 hover:bg-black/35"
+                  }`}
+                />
               ))}
             </div>
           </div>
-        </div>
+        )}
       </div>
-    </div>
+    </section>
   );
 }

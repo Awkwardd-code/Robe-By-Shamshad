@@ -102,7 +102,7 @@ export default function FeaturesGrid() {
         {/* New design: “stepper / timeline” feel */}
         <div className="relative">
           {/* line */}
-          <div className="absolute left-4 top-3 bottom-3 hidden md:block w-px bg-gradient-to-b from-transparent via-gray-200 to-transparent" />
+          <div className="absolute left-4 top-3 bottom-3 hidden md:block w-px bg-linear-to-b from-transparent via-gray-200 to-transparent" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {features.map((f, idx) => {
@@ -128,7 +128,7 @@ export default function FeaturesGrid() {
                     </p>
 
                     {/* subtle underline */}
-                    <div className="mt-3 h-px w-12 bg-gradient-to-r from-[#5b1b1b]/40 to-transparent transition-all duration-300 group-hover:w-20" />
+                    <div className="mt-3 h-px w-12 bg-linear-to-r from-[#5b1b1b]/40 to-transparent transition-all duration-300 group-hover:w-20" />
                   </div>
 
                   {/* corner */}
@@ -147,18 +147,7 @@ export default function FeaturesGrid() {
           </div>
         </div>
 
-        {/* Mobile CTA */}
-        <div className="mt-8 sm:hidden">
-          <Link
-            href="/products"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white hover:bg-gray-800 transition-colors"
-          >
-            Browse products
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
-        </div>
+
       </div>
     </section>
   );
