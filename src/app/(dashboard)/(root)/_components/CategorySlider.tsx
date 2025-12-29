@@ -53,7 +53,7 @@ function MiniTileSkeleton({
 
   return (
     <div className="w-full overflow-hidden">
-      <div className="flex gap-3 sm:gap-4">
+      <div className="flex gap-0 sm:gap-3 md:gap-4">
         {Array.from({ length: count }).map((_, i) => (
           <div
             key={i}
@@ -111,7 +111,7 @@ export default function CategorySlider({
   const getItemsPerView = () => {
     if (typeof window === "undefined") return 4;
     const width = window.innerWidth;
-    if (width < 640) return 1;
+    if (width < 640) return 2;
     if (width < 768) return 2;
     if (width < 1024) return 3;
     return 4;
@@ -297,13 +297,13 @@ export default function CategorySlider({
   // - Hover: show title + description + CTA, and redirect on click
   return (
     <section
-      className="relative w-full py-8 md:py-10 overflow-hidden"
+      className="relative w-full pt-6 pb-8 md:pt-7 md:pb-10 overflow-hidden"
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       aria-label="Category strip"
     >
       {title ? (
-        <div className="px-4 sm:px-6">
+        <div className="px-4 sm:px-6 mb-4 md:mb-5">
           <h2 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-wide text-[#1F1B18]">
             {title}
           </h2>
@@ -324,7 +324,7 @@ export default function CategorySlider({
             />
           ) : (
             <motion.div
-              className="flex gap-3 sm:gap-4 will-change-transform touch-none"
+              className="flex gap-0 sm:gap-3 md:gap-4 will-change-transform touch-none"
               animate={{ x: `-${translatePercent}%` }}
               transition={{ type: "spring", stiffness: 300, damping: 30, mass: 1 }}
             >

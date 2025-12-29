@@ -399,7 +399,7 @@ export default function ModernElegantSlider_EidBannerFrame() {
             </div>
 
             {/* ✅ Center texts = title + desc (subtitle) */}
-            <div className="absolute inset-0 flex items-center justify-center px-4 pb-10  md:items-end md:pb-12 lg:pb-26">
+            <div className="absolute inset-0 flex items-center justify-center px-4">
               <div className="mx-auto text-center max-w-[92%] sm:max-w-3xl md:max-w-4xl">
                 <h2
                   className={`${titleFont.className} text-white font-semibold uppercase tracking-[0.06em] sm:tracking-widest leading-tight sm:leading-none drop-shadow-[0_10px_24px_rgba(0,0,0,0.35)]`}

@@ -560,6 +560,9 @@ export default function ComboOffersListingPage() {
     .filter(Boolean)
     .length;
 
+  const showInitialSkeletons = isLoading && offers.length === 0;
+  const isRefreshing = isLoading && offers.length > 0;
+
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -656,6 +659,12 @@ export default function ComboOffersListingPage() {
         {debouncedSearch && (
           <div className="mt-2 text-[11px] text-gray-500">
             Searching for: <span className="font-semibold text-gray-800">{debouncedSearch}</span>
+          </div>
+        )}
+        {isRefreshing && (
+          <div className="mt-2 text-[11px] text-gray-500 flex items-center gap-2" role="status">
+            <RefreshCcw className="w-3 h-3 animate-spin" />
+            Updating results...
           </div>
         )}
       </div>
@@ -782,6 +791,13 @@ export default function ComboOffersListingPage() {
         button {
           cursor: pointer;
         }
+        .scrollbar-hide {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
       `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -838,20 +854,26 @@ export default function ComboOffersListingPage() {
           <AnimatePresence>
             {(!isMobile || showFilters) && (
               <motion.aside
-                initial={isMobile ? { x: -14, opacity: 0 } : { x: -10, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={isMobile ? { x: -14, opacity: 0 } : { x: -10, opacity: 0 }}
+                initial={isMobile ? { y: 12, opacity: 0 } : { x: -10, opacity: 0 }}
+                animate={{ x: 0, y: 0, opacity: 1 }}
+                exit={isMobile ? { y: 12, opacity: 0 } : { x: -10, opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className={
                   isMobile
-                    ? "fixed left-0 top-0 bottom-0 z-50 w-[92%] max-w-sm p-4"
+                    ? "fixed left-1/2 top-20 bottom-6 z-50 w-[92%] max-w-md -translate-x-1/2 shadow-2xl"
                     : "lg:w-70 shrink-0"
                 }
               >
-                {isLoading ? (
-                  <FilterSidebarSkeleton />
+                {showInitialSkeletons ? (
+                  isMobile ? (
+                    <div className="h-full overflow-y-auto scrollbar-hide rounded-xl">
+                      <FilterSidebarSkeleton />
+                    </div>
+                  ) : (
+                    <FilterSidebarSkeleton />
+                  )
                 ) : isMobile ? (
-                  <div className="h-full overflow-y-auto">{FilterSidebar}</div>
+                  <div className="h-full overflow-y-auto scrollbar-hide rounded-xl">{FilterSidebar}</div>
                 ) : (
                   <div className="sticky top-8">{FilterSidebar}</div>
                 )}
@@ -874,7 +896,7 @@ export default function ComboOffersListingPage() {
                     Exclusive Bundles
                   </h1>
                   <div className="mt-1 text-xs text-gray-500">
-                    {isLoading ? (
+                    {showInitialSkeletons ? (
                       <span className="inline-block h-3 w-24 bg-gray-200 animate-pulse align-middle" />
                     ) : (
                       `${totalCount} combos`
@@ -978,7 +1000,7 @@ export default function ComboOffersListingPage() {
             </div>
 
             {/* Content */}
-            {isLoading ? (
+            {showInitialSkeletons ? (
               viewMode === "grid" ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {Array.from({ length: 8 }).map((_, i) => (
@@ -1018,8 +1040,18 @@ export default function ComboOffersListingPage() {
               </div>
             ) : (
               <>
+                {isRefreshing && (
+                  <div className="mb-4 flex items-center gap-2 text-xs text-gray-500">
+                    <RefreshCcw className="w-3 h-3 animate-spin" />
+                    Updating results...
+                  </div>
+                )}
                 {viewMode === "grid" ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  <div
+                    className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ${
+                      isRefreshing ? "opacity-70" : ""
+                    }`}
+                  >
                     {filtered.map((offer) => (
                       <ComboCard
                         key={offer._id}
@@ -1032,7 +1064,7 @@ export default function ComboOffersListingPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className={`space-y-4 ${isRefreshing ? "opacity-70" : ""}`}>
                     {filtered.map((offer) => (
                       <ComboListItem
                         key={offer._id}
@@ -1201,7 +1233,7 @@ function ComboCard({
           )}
 
           {/* hover action icons */}
-          <div className="absolute right-3 top-14 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute right-3 top-14 flex flex-col gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -1209,7 +1241,7 @@ function ComboCard({
                 onToggleWishlist();
               }}
               type="button"
-              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-red-500 bg-white/90 backdrop-blur border border-gray-200"
+              className="w-9 h-9 flex items-center justify-center text-[#6B0F1A] hover:text-red-500 "
               aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
             >
               <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
@@ -1221,7 +1253,7 @@ function ComboCard({
                 e.stopPropagation();
               }}
               type="button"
-              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-700 bg-white/90 backdrop-blur border border-gray-200"
+              className="w-9 h-9 flex items-center justify-center text-[#6B0F1A] hover:text-gray-700"
               aria-label="Action"
             >
               <RefreshCcw className="w-5 h-5" />
@@ -1266,9 +1298,9 @@ function ComboCard({
           disabled={disabled}
           type="button"
           className={[
-            "w-full h-11 uppercase tracking-widest text-xs font-bold transition",
-            disabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#B8B8B8] text-white hover:bg-[#AFAFAF]",
-            "opacity-0 group-hover:opacity-100",
+            "w-full h-11 bg-[#6B0F1A] uppercase tracking-widest text-xs font-bold transition",
+            disabled ? "bg-[#6B0F1A] text-white cursor-not-allowed" : "bg-[#6B0F1A] text-white hover:bg-[#AFAFAF]",
+            "opacity-100 lg:opacity-0 lg:group-hover:opacity-100",
           ].join(" ")}
         >
           {!offer.isActive ? "OFFER EXPIRED" : outOfStock ? "OUT OF STOCK" : isInCart ? "IN CART" : "SHOP NOW"}
@@ -1398,7 +1430,7 @@ function ComboListItem({
               aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
               type="button"
             >
-              <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
+              <Heart className={`w-5 h-5 text-[#6B0F1A] ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
             </button>
           </div>
 
@@ -1412,8 +1444,8 @@ function ComboListItem({
               }}
               disabled={disabled}
               type="button"
-              className={`h-10 px-5 uppercase tracking-widest text-xs font-bold transition ${
-                disabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#B8B8B8] text-white hover:bg-[#AFAFAF]"
+              className={`h-10 px-5 uppercase bg-[#6B0F1A] tracking-widest text-xs font-bold transition ${
+                disabled ? "bg-[#6B0F1A] text-white cursor-not-allowed" : "bg-[#6B0F1A] text-white hover:bg-[#AFAFAF]"
               }`}
             >
               <span className="inline-flex items-center gap-2">
@@ -1424,7 +1456,7 @@ function ComboListItem({
 
             <Link
               href={getComboDetailHref(offer)}
-              className="h-10 px-5 border border-gray-200 uppercase tracking-widest text-xs font-bold text-gray-700 hover:border-gray-400 inline-flex items-center"
+              className="h-10 px-5 bg-[#6B0F1A] border border-gray-200 uppercase tracking-widest text-xs font-bold text-white hover:border-gray-400 inline-flex items-center"
             >
               View details
             </Link>

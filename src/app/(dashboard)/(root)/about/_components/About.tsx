@@ -85,20 +85,6 @@ export default function AboutPage() {
       bio: "With 20+ years in traditional textile arts, Shamshad brings heritage craftsmanship to modern luxury.",
       expertise: ["Textile Heritage", "Design Innovation", "Sustainable Practices"],
     },
-    {
-      name: "Ayesha Rahman",
-      role: "Head of Design",
-      initials: "AR",
-      bio: "Trained in Milan, Ayesha blends contemporary aesthetics with Bangladeshi textile heritage.",
-      expertise: ["Contemporary Design", "Color Theory", "Pattern Development"],
-    },
-    {
-      name: "Rahim Khan",
-      role: "Production Lead",
-      initials: "RK",
-      bio: "Third-generation artisan ensuring every stitch meets our exacting standards of quality.",
-      expertise: ["Quality Control", "Traditional Techniques", "Team Leadership"],
-    },
   ];
 
   const milestones = [
@@ -169,7 +155,7 @@ export default function AboutPage() {
               
               <div className="flex flex-wrap gap-4">
                 <Link
-                  href="/collections"
+                  href="#"
                   className="inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold uppercase tracking-[0.15em] transition-all hover:shadow-lg cursor-pointer"
                   style={{ backgroundColor: robe.maroon, color: "white" }}
                   onMouseEnter={(e) =>
@@ -528,13 +514,13 @@ export default function AboutPage() {
           </p>
           
           <div className="mt-8 flex justify-center gap-6">
-            <Link href="/privacy" className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">
+            <Link href="#" className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">
               Privacy Policy
             </Link>
-            <Link href="/terms" className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">
+            <Link href="#" className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">
               Terms of Service
             </Link>
-            <Link href="/sustainability" className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">
+            <Link href="#" className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">
               Sustainability
             </Link>
             <Link href="/contact" className="text-xs text-slate-600 hover:text-slate-800 cursor-pointer">

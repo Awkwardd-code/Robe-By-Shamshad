@@ -16,6 +16,7 @@ import {
   RefreshCcw,
   ChevronLeft,
   Search,
+  X,
 } from "lucide-react";
 import { useCommerce } from "@/context/CommerceContext";
 import type { Product as CommerceProduct } from "@/context/CommerceContext";
@@ -272,6 +273,7 @@ export default function DynamicProductListingPage() {
   const [isDesktop, setIsDesktop] = useState(false);
 
   const searchParams = useSearchParams();
+  const searchParam = searchParams.get("search") || "";
   const [selectedCategories, setSelectedCategories] = useState<string[]>(() =>
     searchParams.getAll("category")
   );
@@ -282,6 +284,7 @@ export default function DynamicProductListingPage() {
   // API states
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -296,6 +299,15 @@ export default function DynamicProductListingPage() {
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
+
+  useEffect(() => {
+    if (!showFilters || isDesktop) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [showFilters, isDesktop]);
 
   // Unique brands from products
   const uniqueBrands = useMemo(() => {
@@ -351,6 +363,11 @@ export default function DynamicProductListingPage() {
     });
   }, [searchParams]);
 
+  useEffect(() => {
+    const next = searchParam.trim();
+    setSearchQuery((prev) => (prev === next ? prev : next));
+  }, [searchParam]);
+
   const categoryNameBySlug = useMemo(() => {
     const map = new Map<string, string>();
     availableCategories.forEach((cat) => map.set(cat.slug, cat.name));
@@ -405,6 +422,7 @@ export default function DynamicProductListingPage() {
       console.error("Error fetching products:", err);
     } finally {
       setIsLoading(false);
+      setHasLoadedOnce(true);
     }
   }, [currentPage, debouncedSearch, gender, sort, brands, selectedCategories]);
 
@@ -480,6 +498,9 @@ export default function DynamicProductListingPage() {
     Boolean(debouncedSearch),
   ].filter(Boolean).length;
 
+  const showInitialSkeletons = isLoading && !hasLoadedOnce;
+  const isRefreshing = isLoading && hasLoadedOnce;
+
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
@@ -531,6 +552,13 @@ export default function DynamicProductListingPage() {
         button {
           cursor: pointer;
         }
+        .scrollbar-hide {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
       `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -577,28 +605,59 @@ export default function DynamicProductListingPage() {
           {/* Sidebar Filters */}
           <AnimatePresence>
             {(showFilters || isDesktop) && (
-              <motion.aside
-                initial={{ x: -14, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: -14, opacity: 0 }}
-                className="lg:w-65 shrink-0"
-              >
-                {isLoading ? (
-                  <FilterSidebarSkeleton />
-                ) : (
-                  <div className="bg-white border border-gray-200 p-5 sticky top-8">
-                    <div className="flex items-center justify-between mb-5">
-                      <h2 className="text-sm font-bold uppercase tracking-widest text-gray-900">
-                        Filters
-                      </h2>
-                      <button
-                        onClick={clearAll}
-                        className="text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-900"
-                        type="button"
-                      >
-                        Clear
-                      </button>
+              <>
+                {!isDesktop && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+                    onClick={() => setShowFilters(false)}
+                  />
+                )}
+                <motion.aside
+                  initial={isDesktop ? { x: -14, opacity: 0 } : { y: 12, opacity: 0 }}
+                  animate={{ x: 0, y: 0, opacity: 1 }}
+                  exit={isDesktop ? { x: -14, opacity: 0 } : { y: 12, opacity: 0 }}
+                  className={
+                    isDesktop
+                      ? "lg:w-65 shrink-0"
+                      : "fixed left-1/2 top-20 bottom-6 z-50 w-[92%] max-w-md -translate-x-1/2"
+                  }
+                >
+                  {showInitialSkeletons ? (
+                    <div className={isDesktop ? "" : "h-full overflow-y-auto scrollbar-hide rounded-xl"}>
+                      <FilterSidebarSkeleton />
                     </div>
+                  ) : (
+                    <div
+                      className={`bg-white border border-gray-200 p-5 ${
+                        isDesktop ? "sticky top-8" : "h-full overflow-y-auto scrollbar-hide rounded-xl"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-5">
+                        <h2 className="text-sm font-bold uppercase tracking-widest text-gray-900">
+                          Filters
+                        </h2>
+                        {isDesktop ? (
+                          <button
+                            onClick={clearAll}
+                            className="text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-900"
+                            type="button"
+                          >
+                            Clear
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setShowFilters(false)}
+                            className="w-9 h-9 border border-gray-200 bg-white inline-flex items-center justify-center hover:bg-gray-50"
+                            type="button"
+                            aria-label="Close filters"
+                          >
+                            <X className="w-4 h-4 text-gray-700" />
+                          </button>
+                        )}
+                      </div>
 
                     {/* Search (enabled + refined) */}
                     <div className="mb-5">
@@ -625,6 +684,12 @@ export default function DynamicProductListingPage() {
                       {debouncedSearch && (
                         <div className="mt-2 text-[11px] text-gray-500">
                           Searching for: <span className="font-semibold text-gray-800">{debouncedSearch}</span>
+                        </div>
+                      )}
+                      {isRefreshing && (
+                        <div className="mt-2 text-[11px] text-gray-500 flex items-center gap-2" role="status">
+                          <RefreshCcw className="w-3 h-3 animate-spin" />
+                          Updating results...
                         </div>
                       )}
                     </div>
@@ -766,9 +831,10 @@ export default function DynamicProductListingPage() {
                         </div>
                       </div>
                     )}
-                  </div>
-                )}
-              </motion.aside>
+                    </div>
+                  )}
+                </motion.aside>
+              </>
             )}
           </AnimatePresence>
 
@@ -893,7 +959,7 @@ export default function DynamicProductListingPage() {
             </div>
 
             {/* Loading / Error / Empty / Results */}
-            {isLoading ? (
+            {showInitialSkeletons ? (
               viewMode === "grid" ? (
                 <ProductGridSkeleton />
               ) : (
@@ -925,8 +991,18 @@ export default function DynamicProductListingPage() {
               </div>
             ) : (
               <>
+                {isRefreshing && (
+                  <div className="mb-4 flex items-center gap-2 text-xs text-gray-500">
+                    <RefreshCcw className="w-3 h-3 animate-spin" />
+                    Updating results...
+                  </div>
+                )}
                 {viewMode === "grid" ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  <div
+                    className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ${
+                      isRefreshing ? "opacity-70" : ""
+                    }`}
+                  >
                     {filtered.map((product) => (
                       <ProductCard
                         key={resolveApiProductId(product)}
@@ -939,7 +1015,7 @@ export default function DynamicProductListingPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className={`space-y-4 ${isRefreshing ? "opacity-70" : ""}`}>
                     {filtered.map((product) => (
                       <ProductListItem
                         key={resolveApiProductId(product)}
@@ -1069,7 +1145,7 @@ function ProductCard({
           />
 
           {/* top-right icons (hover) */}
-          <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="absolute right-3 top-3 flex flex-col gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
             <button
               onClick={(e) => {
                 e.preventDefault();
@@ -1077,7 +1153,7 @@ function ProductCard({
                 onToggleWishlist();
               }}
               type="button"
-              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-red-500"
+              className="w-9 h-9 flex items-center justify-center text-[#6B0F1A] hover:text-red-500"
               aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
             >
               <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
@@ -1089,7 +1165,7 @@ function ProductCard({
                 e.stopPropagation();
               }}
               type="button"
-              className="w-9 h-9 flex items-center justify-center text-gray-400 hover:text-gray-700"
+              className="w-9 h-9 flex items-center justify-center text-[#6B0F1A] hover:text-gray-700"
               aria-label="Compare"
             >
               <RefreshCcw className="w-5 h-5" />
@@ -1145,9 +1221,11 @@ function ProductCard({
           disabled={shopDisabled}
           type="button"
           className={[
-            "w-full h-11 uppercase tracking-widest text-xs font-bold transition",
-            shopDisabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#B8B8B8] text-white hover:bg-[#AFAFAF]",
-            "opacity-0 group-hover:opacity-100",
+            "w-full h-11 bg-[#6B0F1A] text-white uppercase tracking-widest text-xs font-bold transition",
+            shopDisabled
+              ? "bg-[#6B0F1A] text-white cursor-not-allowed"
+              : "bg-[#6B0F1A] text-white hover:bg-[#5E0D17]",
+            "opacity-100 lg:opacity-0 lg:group-hover:opacity-100",
           ].join(" ")}
         >
           {outOfStock ? "OUT OF STOCK" : isInCart ? "IN CART" : "SHOP NOW"}
@@ -1226,11 +1304,11 @@ function ProductListItem({
 
             <button
               onClick={onToggleWishlist}
-              className="text-gray-400 hover:text-red-500"
+              className="text-[#6B0F1A] hover:text-red-500"
               aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
               type="button"
             >
-              <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
+              <Heart className={`w-5 h-5  ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
             </button>
           </div>
 
@@ -1242,10 +1320,10 @@ function ProductListItem({
               }}
               disabled={disabled}
               type="button"
-              className={`h-10 px-5 uppercase tracking-widest text-xs font-bold ${
+              className={`h-10  px-5 uppercase tracking-widest text-xs font-bold ${
                 disabled
-                  ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                  : "bg-[#B8B8B8] text-white hover:bg-[#AFAFAF]"
+                  ? "bg-[#6B0F1A] text-white cursor-not-allowed"
+                  : "bg-[#6B0F1A] text-white hover:bg-[#5E0D17]"
               }`}
             >
               <span className="inline-flex items-center gap-2">
@@ -1256,7 +1334,7 @@ function ProductListItem({
 
             <Link
               href={productSlug}
-              className="h-10 px-5 border border-gray-200 uppercase tracking-widest text-xs font-bold text-gray-700 hover:border-gray-400 inline-flex items-center"
+              className="h-10 text-white bg-[#6B0F1A] px-5 border border-gray-200 uppercase tracking-widest text-xs font-bold  hover:border-gray-400 inline-flex items-center"
             >
               View details
             </Link>

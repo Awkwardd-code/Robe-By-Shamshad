@@ -82,14 +82,14 @@ export default function Footer() {
     tap: { rotate: -5 }
   };
 
-  const mutedTextColor = "text-gray-600";
-  const borderColor = "border-gray-300";
-  const cardBgColor = "bg-white";
-  const socialBgColor = "bg-gray-200";
-  const socialHoverBgColor = "hover:bg-gray-300";
+  const mutedTextColor = "text-[#A9A9A9]";
+  const borderColor = "border-[#A9A9A9]";
+  const cardBgColor = "bg-[#FFFFFF]";
+  const socialBgColor = "bg-[#FFFFFF] border border-[#A9A9A9] text-[#5B1B1B]";
+  const socialHoverBgColor = "hover:bg-[#A9A9A9]/20 hover:border-[#FFFFFF]";
 
   return (
-    <footer className="bg-gray-100 text-gray-900 mt-auto transition-colors duration-300">
+    <footer className="bg-[#5B1B1B] text-[#FFFFFF] mt-auto transition-colors duration-300">
       <div className="container mx-auto px-4 py-12">
         {/* Main Footer Content */}
         <motion.div 
@@ -102,15 +102,15 @@ export default function Footer() {
           
           {/* INFORMATION Column */}
           <motion.div variants={itemVariants}>
-            <h3 className="text-lg font-bold mb-4 pb-2 border-b border-gray-700">INFORMATION</h3>
+            <h3 className="text-lg font-bold mb-4 pb-2 border-b border-[#A9A9A9] text-[#FFFFFF]">INFORMATION</h3>
             <ul className="space-y-3">
               {[
-                { label: "About Us", icon: null },
-                { label: "Camera", icon: Camera },
-                { label: "Awards & Recognitions", icon: Award },
-                { label: "Investors", icon: Users },
-                { label: "Data Promotion", icon: FileText },
-                { label: "Share Department", icon: Shield },
+                
+                { label: "About", icon: null },
+                { label: "Products", icon: Camera },
+                { label: "Sales", icon: Award },
+                { label: "Contact", icon: Users },
+              
               ].map((item) => (
                 <motion.li
                   key={item.label}
@@ -119,12 +119,12 @@ export default function Footer() {
                 >
                   <motion.a
                     href={`/${item.label.toLowerCase().replace(/ & /g, '-').replace(/ /g, '-')}`}
-                    className={`${mutedTextColor} hover:text-amber-600 transition-colors flex items-center gap-2 group`}
+                    className={`${mutedTextColor} hover:text-[#FFFFFF] transition-colors flex items-center gap-2 group`}
                     whileHover="hover"
                     initial="initial"
                   >
                     <motion.span 
-                      className="w-2 h-2 bg-amber-500 rounded-full"
+                      className="w-2 h-2 bg-[#FFFFFF] rounded-full"
                       variants={iconVariants}
                     />
                     {item.icon && (
@@ -149,15 +149,15 @@ export default function Footer() {
 
           {/* POPULAR BRANDS Column */}
           <motion.div variants={itemVariants}>
-            <h3 className="text-lg font-bold mb-4 pb-2 border-b border-gray-700">POPULAR BRANDS</h3>
+            <h3 className="text-lg font-bold mb-4 pb-2 border-b border-[#A9A9A9] text-[#FFFFFF]">POPULAR BRANDS</h3>
             <ul className="space-y-3">
               <motion.li
                 whileHover={{ scale: 1.02 }}
                 transition={{ type: "spring" as const, stiffness: 300 }}
               >
-                <span className="text-amber-600 font-semibold">Bites</span>
+                <span className="text-[#FFFFFF] font-semibold">Bites</span>
                 <ul className="ml-4 mt-2 space-y-2">
-                  {["Health Puppies", "Power", "Comfit", "Watchmanner", "North Star", "Mobile Claire"].map((brand, index) => (
+                  {["Robe By ShamShad",].map((brand, index) => (
                     <motion.li
                       key={brand}
                       initial={{ opacity: 0, x: -10 }}
@@ -166,12 +166,12 @@ export default function Footer() {
                       viewport={{ once: true }}
                     >
                       <motion.a
-                        href={`/brands/${brand.toLowerCase().replace(/ /g, '-')}`}
-                    className={`${mutedTextColor} hover:text-amber-600 transition-colors text-sm flex items-center gap-2 group`}
+                        href={`/`}
+                    className={`${mutedTextColor} hover:text-[#FFFFFF] transition-colors text-sm flex items-center gap-2 group`}
                         whileHover={{ x: 3 }}
                       >
                         <motion.span 
-                          className="w-1.5 h-1.5 bg-amber-400 rounded-full"
+                          className="w-1.5 h-1.5 bg-[#FFFFFF] rounded-full"
                           variants={iconVariants}
                         />
                         {brand}
@@ -192,15 +192,17 @@ export default function Footer() {
 
           {/* CUSTOMER SERVICE Column */}
           <motion.div variants={itemVariants}>
-            <h3 className="text-lg font-bold mb-4 pb-2 border-b border-gray-700">CUSTOMER SERVICE</h3>
+            <h3 className="text-lg font-bold mb-4 pb-2 border-b border-[#A9A9A9] text-[#FFFFFF]">CUSTOMER SERVICE</h3>
             <ul className="space-y-3">
               {[
-                { label: "FAQs", indent: false },
+                { label: "Sales", indent: false },
+               /*  { label: "FAQs", indent: false },
                 { label: "MyStats", indent: true },
                 { label: "Bites Stories", indent: true },
-                { label: "All About Feet", indent: true },
-                { label: "Contact Info", indent: true },
-                { label: "Report Issue", indent: true },
+                { label: "All About Feet", indent: true }, */
+                { label: "Contact", indent: true },
+                { label: "About", indent: true },
+                // { label: "Report Issue", indent: true },
               ].map((item) => (
                 <motion.li
                   key={item.label}
@@ -210,7 +212,7 @@ export default function Footer() {
                 >
                   <motion.a
                     href={`/${item.label.toLowerCase().replace(/ /g, '-')}`}
-                    className={`${mutedTextColor} hover:text-amber-600 transition-colors ${item.indent ? 'text-sm' : ''} flex items-center gap-2`}
+                    className={`${mutedTextColor} hover:text-[#FFFFFF] transition-colors ${item.indent ? 'text-sm' : ''} flex items-center gap-2`}
                     whileHover="hover"
                     initial="initial"
                   >
@@ -219,7 +221,7 @@ export default function Footer() {
                       whileHover="hover"
                       whileTap="tap"
                     >
-                      <span className={`w-${item.indent ? '1.5' : '2'} h-${item.indent ? '1.5' : '2'} ${item.indent ? 'bg-amber-400' : 'bg-amber-500'} rounded-full`} />
+                      <span className={`w-${item.indent ? '1.5' : '2'} h-${item.indent ? '1.5' : '2'} bg-[#FFFFFF] rounded-full`} />
                     </motion.div>
                     {item.label}
                   </motion.a>
@@ -230,7 +232,7 @@ export default function Footer() {
 
           {/* INFO Column */}
           <motion.div variants={itemVariants}>
-            <h3 className="text-lg font-bold mb-4 pb-2 border-b border-gray-700">INFO</h3>
+            <h3 className="text-lg font-bold mb-4 pb-2 border-b border-[#A9A9A9] text-[#FFFFFF]">INFO</h3>
             <div className="space-y-6">
               <motion.div
                 whileHover={{ scale: 1.02 }}
@@ -245,9 +247,9 @@ export default function Footer() {
                     variants={iconVariants}
                     whileHover="hover"
                   >
-                    <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
+                    <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-[#FFFFFF]" />
                   </motion.div>
-                  <span className="text-sm text-gray-500">Tongi Carbon, Bangladesh.</span>
+                  <span className="text-sm text-[#A9A9A9]">Tongi Carbon, Bangladesh.</span>
                 </motion.div>
               </motion.div>
 
@@ -266,9 +268,9 @@ export default function Footer() {
                     variants={iconVariants}
                     whileHover="hover"
                   >
-                    <Phone className="h-4 w-4 text-amber-500" />
+                    <Phone className="h-4 w-4 text-[#FFFFFF]" />
                   </motion.div>
-                  <span className="text-sm text-gray-500">Call us at: 00862020309 (Ben-Semi)</span>
+                  <span className="text-sm text-[#A9A9A9]">Call us at: 00862020309 (Ben-Semi)</span>
                 </motion.div>
                 <motion.div 
                   className="flex items-center gap-2"
@@ -279,18 +281,18 @@ export default function Footer() {
                     variants={iconVariants}
                     whileHover="hover"
                   >
-                    <Mail className="h-4 w-4 text-amber-500" />
+                    <Mail className="h-4 w-4 text-[#FFFFFF]" />
                   </motion.div>
-                  <span className="text-sm text-gray-500">Email: bdscustomercare@uni-bs.com</span>
+                  <span className="text-sm text-[#A9A9A9]">Email: bdscustomercare@uni-bs.com</span>
                 </motion.div>
               </motion.div>
 
               {/* Newsletter Subscription */}
-              <motion.div 
-                className="pt-6 border-t border-gray-700"
+              {/* <motion.div 
+                className="pt-6 border-t border-[#A9A9A9]"
                 variants={itemVariants}
               >
-                <h4 className="text-lg font-bold mb-4">Sign up for our Newsletter</h4>
+                <h4 className="text-lg font-bold mb-4 text-[#FFFFFF]">Sign up for our Newsletter</h4>
                 <motion.form 
                   onSubmit={handleSubmit} 
                   className="space-y-4"
@@ -308,14 +310,14 @@ export default function Footer() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter your email "
-                      className={`w-full px-4 py-3 ${cardBgColor} ${borderColor} border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-gray-900 placeholder-gray-400 transition-colors duration-300`}
+                      className={`w-full px-4 py-3 ${cardBgColor} ${borderColor} border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#5B1B1B] focus:border-transparent text-[#4B4B4B] placeholder-[#A9A9A9] transition-colors duration-300`}
                       required
                       variants={formInputVariants}
                       whileFocus="focus"
                     />
                     <motion.button
                       type="submit"
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-amber-600 hover:bg-amber-700 text-white p-2 rounded-lg transition-colors"
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#5B1B1B] hover:bg-[#5B1B1B]/90 text-white p-2 rounded-lg transition-colors"
                       variants={submitButtonVariants}
                       whileHover="hover"
                       whileTap="tap"
@@ -324,20 +326,20 @@ export default function Footer() {
                     </motion.button>
                   </motion.div>
                   <motion.p 
-                    className="text-xs text-gray-400"
+                    className="text-xs text-[#A9A9A9]"
                     variants={itemVariants}
                   >
                     Subscribe to get updates on new arrivals, special offers and more.
                   </motion.p>
                 </motion.form>
-              </motion.div>
+              </motion.div> */}
             </div>
           </motion.div>
         </motion.div>
 
         {/* Social Media & Bottom Section */}
         <motion.div 
-          className="mt-12 pt-8 border-t border-gray-800"
+          className="mt-12 pt-8 border-t border-[#A9A9A9]"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -383,7 +385,7 @@ export default function Footer() {
               viewport={{ once: true }}
               transition={{ delay: 0.5 }}
             >
-              <p className="text-gray-400 text-sm">
+              <p className="text-[#A9A9A9] text-sm">
                 © {new Date().getFullYear()} Bites Shop Company Bangladesh Ltd. All rights reserved.
               </p>
               <div className="flex flex-wrap justify-center md:justify-end gap-4 mt-2">
@@ -391,7 +393,7 @@ export default function Footer() {
                   <motion.a
                     key={policy}
                     href={`/${policy.toLowerCase().replace(/ /g, '-')}`}
-                    className="text-gray-400 hover:text-amber-600 text-sm transition-colors"
+                    className="text-[#A9A9A9] hover:text-[#FFFFFF] text-sm transition-colors"
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >

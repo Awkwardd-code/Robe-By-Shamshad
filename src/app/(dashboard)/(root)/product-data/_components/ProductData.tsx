@@ -16,6 +16,7 @@ import {
   ShoppingBag,
   Check,
   Search,
+  RefreshCcw,
   X,
 } from "lucide-react";
 import { useCommerce } from "@/context/CommerceContext";
@@ -549,7 +550,6 @@ export default function ProductListingPage({
 
     const loadDefaultProducts = async () => {
       setRemoteError(null);
-      setRemoteProducts([]);
       setIsRemoteLoading(true);
       try {
         const params = new URLSearchParams();
@@ -756,6 +756,9 @@ export default function ProductListingPage({
     colors.length,
   ].filter(Boolean).length;
 
+  const showInitialSkeletons = isRemoteLoading && remoteProducts.length === 0;
+  const isRefreshing = isRemoteLoading && remoteProducts.length > 0;
+
   // pagination (refined)
   const PAGE_SIZE = 12;
   const [page, setPage] = useState(1);
@@ -862,6 +865,12 @@ export default function ProductListingPage({
         {debouncedSearch && (
           <div className="mt-2 text-[11px] text-gray-500">
             Searching for: <span className="font-semibold text-gray-800">{debouncedSearch}</span>
+          </div>
+        )}
+        {isRefreshing && (
+          <div className="mt-2 text-[11px] text-gray-500 flex items-center gap-2" role="status">
+            <RefreshCcw className="w-3 h-3 animate-spin" />
+            Updating results...
           </div>
         )}
       </div>
@@ -1007,7 +1016,7 @@ export default function ProductListingPage({
             </button>
           </div>
 
-          {/* Backdrop */}
+          {/* Backdrop for mobile */}
           <AnimatePresence>
             {showFilters && isMobile && (
               <motion.div
@@ -1024,13 +1033,21 @@ export default function ProductListingPage({
           <AnimatePresence>
             {(!isMobile || showFilters) && (
               <motion.aside
-                initial={isMobile ? { x: -14, opacity: 0 } : { x: -10, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={isMobile ? { x: -14, opacity: 0 } : { x: -10, opacity: 0 }}
+                initial={isMobile ? { y: 12, opacity: 0 } : { x: -10, opacity: 0 }}
+                animate={{ x: 0, y: 0, opacity: 1 }}
+                exit={isMobile ? { y: 12, opacity: 0 } : { x: -10, opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className={isMobile ? "fixed left-0 top-0 bottom-0 z-50 w-[92%] max-w-sm p-4" : "lg:w-60 shrink-0"}
+                className={
+                  isMobile
+                    ? "fixed left-1/2 top-20 bottom-6 z-50 w-[92%] max-w-md -translate-x-1/2 shadow-2xl"
+                    : "lg:w-60 shrink-0"
+                }
               >
-                {isMobile ? <div className="h-full overflow-y-auto">{FilterSidebar}</div> : <div className="sticky top-8">{FilterSidebar}</div>}
+                {isMobile ? (
+                  <div className="h-full overflow-y-auto scrollbar-hide rounded-xl">{FilterSidebar}</div>
+                ) : (
+                  <div className="sticky top-8">{FilterSidebar}</div>
+                )}
               </motion.aside>
             )}
           </AnimatePresence>
@@ -1048,7 +1065,7 @@ export default function ProductListingPage({
                   <h1 className="mt-3 text-xl font-bold uppercase tracking-widest text-gray-900">{heroTitle}</h1>
 
                   <div className="mt-1 text-xs text-gray-500">
-                    {isRemoteLoading ? <Skeleton className="w-20 h-4"></Skeleton>: `${filtered.length} products`}
+                    {showInitialSkeletons ? <Skeleton className="w-20 h-4" /> : `${filtered.length} products`}
                     {activeFiltersCount > 0 ? ` • ${activeFiltersCount} active` : ""}
                   </div>
 
@@ -1134,7 +1151,7 @@ export default function ProductListingPage({
             </div>
 
             {/* Products */}
-            {isRemoteLoading ? (
+            {showInitialSkeletons ? (
               viewMode === "grid" ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {Array.from({ length: 8 }).map((_, i) => (
@@ -1160,32 +1177,46 @@ export default function ProductListingPage({
                   Clear Filters
                 </button>
               </div>
-            ) : viewMode === "grid" ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {pageItems.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    isWishlisted={isProductWishlisted(product)}
-                    isInCart={isProductInCart(product)}
-                    onToggleWishlist={() => handleToggleWishlist(product)}
-                    onAddToCart={() => handleAddToCart(product)}
-                  />
-                ))}
-              </div>
             ) : (
-              <div className="space-y-4">
-                {pageItems.map((product) => (
-                  <ProductListItem
-                    key={product.id}
-                    product={product}
-                    isWishlisted={isProductWishlisted(product)}
-                    isInCart={isProductInCart(product)}
-                    onToggleWishlist={() => handleToggleWishlist(product)}
-                    onAddToCart={() => handleAddToCart(product)}
-                  />
-                ))}
-              </div>
+              <>
+                {isRefreshing && (
+                  <div className="mb-4 flex items-center gap-2 text-xs text-gray-500">
+                    <RefreshCcw className="w-3 h-3 animate-spin" />
+                    Updating results...
+                  </div>
+                )}
+                {viewMode === "grid" ? (
+                  <div
+                    className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 ${
+                      isRefreshing ? "opacity-70" : ""
+                    }`}
+                  >
+                    {pageItems.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        isWishlisted={isProductWishlisted(product)}
+                        isInCart={isProductInCart(product)}
+                        onToggleWishlist={() => handleToggleWishlist(product)}
+                        onAddToCart={() => handleAddToCart(product)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className={`space-y-4 ${isRefreshing ? "opacity-70" : ""}`}>
+                    {pageItems.map((product) => (
+                      <ProductListItem
+                        key={product.id}
+                        product={product}
+                        isWishlisted={isProductWishlisted(product)}
+                        isInCart={isProductInCart(product)}
+                        onToggleWishlist={() => handleToggleWishlist(product)}
+                        onAddToCart={() => handleAddToCart(product)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             {/* Pagination */}
@@ -1302,7 +1333,7 @@ function ProductCard({
             </div>
           )}
 
-          <div className="absolute right-3 top-14 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition">
+          <div className="absolute right-3 top-14 flex flex-col gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition">
             <button
               type="button"
               onClick={(e) => {
@@ -1310,7 +1341,7 @@ function ProductCard({
                 e.stopPropagation();
                 onToggleWishlist();
               }}
-              className="w-9 h-9 bg-white/90 backdrop-blur flex items-center justify-center text-gray-400 hover:text-red-500 transition"
+              className="w-9 h-9 text-[#6B0F1A] bg-white/90 backdrop-blur flex items-center justify-center  hover:text-red-500 transition"
               aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
             >
               <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
@@ -1322,7 +1353,7 @@ function ProductCard({
                 e.stopPropagation();
                 router.push(detailHref);
               }}
-              className="w-9 h-9 bg-white/90 backdrop-blur flex items-center justify-center text-gray-400 hover:text-gray-900 transition"
+              className="w-9 h-9 bg-white/90 backdrop-blur flex items-center justify-center text-[#6B0F1A] hover:text-gray-900 transition"
               aria-label="View product"
             >
               <Eye className="w-5 h-5" />
@@ -1375,9 +1406,9 @@ function ProductCard({
           }}
           disabled={isInCart}
           className={[
-            "w-full h-11 uppercase tracking-widest text-xs font-bold transition",
-            isInCart ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#B8B8B8] text-white hover:bg-[#AFAFAF]",
-            "opacity-0 group-hover:opacity-100",
+            "w-full h-11 uppercase bg-[#6B0F1A] tracking-widest text-xs font-bold transition",
+            isInCart ? "bg-[#6B0F1A] text-white cursor-not-allowed" : "bg-[#6B0F1A] text-white hover:bg-[#AFAFAF]",
+            "opacity-100 lg:opacity-0 lg:group-hover:opacity-100",
           ].join(" ")}
         >
           {isInCart ? "In cart" : "Shop now"}
@@ -1478,7 +1509,7 @@ function ProductListItem({
                 <Heart
                   className={`w-5 h-5 transition-colors ${isWishlisted
                       ? "fill-red-500 text-red-500"
-                      : "text-gray-400 hover:text-red-500"
+                      : "text-[#6B0F1A] hover:text-red-500"
                     }`}
                 />
               </button>
@@ -1493,7 +1524,7 @@ function ProductListItem({
                 className="p-1.5 rounded-full bg-transparent hover:shadow-sm transition-shadow"
                 aria-label="View product"
               >
-                <Eye className="w-5 h-5 text-gray-400 hover:text-gray-800 transition-colors" />
+                <Eye className="w-5 h-5 text-[#6B0F1A] hover:text-gray-800 transition-colors" />
               </button>
             </div>
           </div>
@@ -1508,7 +1539,7 @@ function ProductListItem({
                 onAddToCart();
               }}
               disabled={isInCart}
-              className={`h-10 px-5 uppercase tracking-widest text-xs font-bold transition ${isInCart ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-[#B8B8B8] text-white hover:bg-[#AFAFAF]"
+              className={`h-10 px-5 uppercase tracking-widest text-xs font-bold transition ${isInCart ? "bg-[#6B0F1A] text-white cursor-not-allowed" : "bg-[#6B0F1A] text-white hover:bg-[#AFAFAF]"
                 }`}
             >
               <span className="inline-flex items-center gap-2">
@@ -1520,7 +1551,7 @@ function ProductListItem({
             <Link
               href={detailHref}
               prefetch={false}
-              className="h-10 px-5 border border-gray-200 uppercase tracking-widest text-xs font-bold text-gray-700 hover:border-gray-400 inline-flex items-center"
+              className="h-10 px-5 border bg-[#6B0F1A] text-white border-gray-200 uppercase tracking-widest text-xs font-bold hover:border-gray-400 inline-flex items-center"
             >
               View details
             </Link>

@@ -1328,7 +1328,6 @@ function ProductDetailContent({ product }: { product: Product }) {
                         onClick={() => {
                           if (!canAddToCart) return;
                           addToCart(cartProduct, displayQty);
-                          router.push("/cart");
                         }}
                         ariaLabel={`${productIsInCart ? "In Cart" : inStock ? "Add to Cart" : "Sold Out"} ${displayQty} ${product.name}`}
                         className="flex-1"

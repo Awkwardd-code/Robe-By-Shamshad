@@ -358,6 +358,11 @@ export default function ComboOfferDetail({
     ? "In Cart"
     : "Add Combo to Cart";
 
+  const handleAddToCart = () => {
+    if (comboButtonDisabled) return;
+    addToCart(cartProduct, displayQty);
+  };
+
   // Safe settings + analytics defaults
   const settings = comboOffer.settings ?? {
     isPublished: true,
@@ -1298,7 +1303,7 @@ export default function ComboOfferDetail({
                   <div className="flex flex-wrap gap-3">
                     {/* Add to Cart */}
                     <button
-                      onClick={() => addToCart(cartProduct, displayQty)}
+                      onClick={handleAddToCart}
                       disabled={comboButtonDisabled}
                       className={[
                         primaryBtnBase,

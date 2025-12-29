@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
     Search,
     Heart,
-    ShoppingBag,
+    ShoppingCart,
     User,
     Menu,
     X,
@@ -347,6 +347,7 @@ type NavItem = {
 
 const STATIC_NAV_ITEMS: NavItem[] = [
     { label: "HOME", href: "/" },
+    { label: "PRODUCTS", href: "/products" },
     { label: "SALE", href: "/sales", highlight: true },
     { label: "ABOUT US", href: "/about" },
 ];
@@ -370,6 +371,7 @@ const SearchPanel = ({
     categories,
     isLoading,
     onPickCategory,
+    onSearch,
 }: {
     isOpen: boolean;
     onClose: () => void;
@@ -377,10 +379,19 @@ const SearchPanel = ({
     categories: string[];
     isLoading: boolean;
     onPickCategory: (categoryName: string) => void;
+    onSearch: (query: string) => void;
 }) => {
     const [searchQuery, setSearchQuery] = useState("");
     const recentSearches = ["Winter Collection", "Silk", "Premium", "New Arrivals"];
     const availableCategories = categories.length ? categories : [];
+
+    const handleSubmit = (event: React.FormEvent) => {
+        event.preventDefault();
+        const query = searchQuery.trim();
+        if (!query) return;
+        onSearch(query);
+        onClose();
+    };
 
     useEffect(() => {
         if (!isOpen) return;
@@ -422,30 +433,40 @@ const SearchPanel = ({
                     </button>
                 </div>
 
-                <div className="relative mb-6">
+                <form className="relative mb-6" onSubmit={handleSubmit}>
                     <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8C7F78]" />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="What are you looking for?"
-                        className="w-full rounded-lg border border-[#E7E2DE] bg-white py-3 pl-12 pr-4 text-[#1F1B18] placeholder-[#8C7F78] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#6B0F1A]/20 transition-all"
+                        className="w-full rounded-lg border border-[#E7E2DE] bg-white py-3 pl-12 pr-20 text-[#1F1B18] placeholder-[#8C7F78] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#6B0F1A]/20 transition-all"
                         autoFocus
                     />
-                </div>
+                    <button
+                        type="submit"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#6B0F1A] px-3 py-2 text-xs font-semibold text-white hover:bg-[#5E0D17] transition-colors"
+                    >
+                        Search
+                    </button>
+                </form>
 
                 <div className="mb-6">
                     <h3
                         className="mb-3 text-sm font-semibold text-[#1F1B18]"
                         style={{ fontFamily: FONTS.nav }}
                     >
-                        Recent Searches 
+                        Recent Searches
                     </h3>
                     <div className="flex flex-wrap gap-2">
                         {recentSearches.map((term) => (
                             <button
                                 key={term}
-                                onClick={() => setSearchQuery(term)}
+                                onClick={() => {
+                                    setSearchQuery(term);
+                                    onSearch(term);
+                                    onClose();
+                                }}
                                 className="rounded-full bg-[#F5EFE9] px-3 py-1.5 text-sm text-[#1F1B18] transition-colors hover:bg-[#E7E2DE]"
                                 type="button"
                             >
@@ -682,7 +703,7 @@ const CartPanel = ({
                 <div className="mb-3 flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                         <div className="rounded-lg bg-[#F5EFE9] p-2">
-                            <ShoppingBag className="h-5 w-5 text-[#1F1B18]" />
+                            <ShoppingCart className="h-5 w-5 text-[#1F1B18]" />
                         </div>
                         <div>
                             <h2
@@ -791,7 +812,7 @@ const CartPanel = ({
                                     href="/cart"
                                     className="inline-flex h-9 items-center justify-center rounded-lg border border-[#E7E2DE] bg-transparent px-4 text-xs font-semibold uppercase tracking-[0.3em] text-[#1F1B18] transition-colors hover:border-[#C41E3A] hover:bg-[#F5EFE9]"
                                 >
-                                    View Cart 
+                                    View Cart
                                 </Link>
                                 <Link
                                     href="/checkout"
@@ -806,7 +827,7 @@ const CartPanel = ({
                 ) : (
                     <div className="py-6 text-center">
                         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#F5EFE9]">
-                            <ShoppingBag className="h-6 w-6 text-[#8C7F78]" />
+                            <ShoppingCart className="h-6 w-6 text-[#8C7F78]" />
                         </div>
                         <p
                             className="text-sm font-semibold text-[#1F1B18]"
@@ -845,26 +866,106 @@ const ProfileDropdown = ({
     logoutLoading?: boolean;
 }) => {
     useEscToClose(isOpen, onClose);
+    const { cartItems, wishlistItems } = useCommerce();
+    const [orderCount, setOrderCount] = useState<number | null>(null);
+    const [isOrdersLoading, setIsOrdersLoading] = useState(false);
+
+    useEffect(() => {
+        const userId = user?.id;
+        if (!isOpen || !userId) return;
+        let isActive = true;
+        const controller = new AbortController();
+
+        const resolveOrderCount = async () => {
+            setIsOrdersLoading(true);
+            setOrderCount(null);
+            try {
+                let page = 1;
+                let totalPages = 1;
+                let matchedCount = 0;
+
+                while (page <= totalPages) {
+                    const response = await fetch(`/api/orders?page=${page}&limit=50`, {
+                        cache: "no-store",
+                        signal: controller.signal,
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Failed to load orders");
+                    }
+
+                    const data = await response.json();
+                    const orders = Array.isArray(data?.orders) ? data.orders : [];
+
+                    matchedCount += orders.reduce((acc: number, order: unknown) => {
+                        if (!order || typeof order !== "object") return acc;
+                        const record = order as { userId?: unknown };
+                        const rawUserId = record.userId;
+                        if (typeof rawUserId === "string") {
+                            return rawUserId === userId ? acc + 1 : acc;
+                        }
+                        if (rawUserId && typeof rawUserId === "object") {
+                            const oid = rawUserId as { $oid?: unknown; toString?: () => string };
+                            if (typeof oid.$oid === "string") {
+                                return oid.$oid === userId ? acc + 1 : acc;
+                            }
+                            if (typeof oid.toString === "function") {
+                                return oid.toString() === userId ? acc + 1 : acc;
+                            }
+                        }
+                        return acc;
+                    }, 0);
+
+                    totalPages = typeof data?.totalPages === "number" ? data.totalPages : page;
+                    page += 1;
+                }
+
+                if (isActive) setOrderCount(matchedCount);
+            } catch (error) {
+                if ((error as Error).name !== "AbortError") {
+                    console.error("Failed to load order count", error);
+                }
+                if (isActive) setOrderCount(0);
+            } finally {
+                if (isActive) setIsOrdersLoading(false);
+            }
+        };
+
+        void resolveOrderCount();
+
+        return () => {
+            isActive = false;
+            controller.abort();
+        };
+    }, [isOpen, user?.id]);
 
     if (!user && !loading) {
         return null;
     }
 
-    const isAdmin = user?.role?.toUpperCase() === "ADMIN";
+    const isAdmin = user?.isAdmin === 1;
     const joinedYear = new Date().getFullYear().toString();
     const displayName = user?.name || "ROBE Member";
     const displayEmail = user?.email;
 
+    const cartCount = cartItems.reduce((sum, entry) => sum + entry.quantity, 0);
+    const wishlistCount = wishlistItems.length;
+    const ordersValue = orderCount === null || isOrdersLoading ? "..." : `${orderCount}`;
+
     const quickStats = [
-        { label: "Orders", value: "12" },
-        { label: "Wishlist", value: "5" },
-        { label: "Points", value: "1,240" },
+        { label: "Orders", value: ordersValue },
+        { label: "Wishlist", value: `${wishlistCount}` },
+        { label: "Cart", value: `${cartCount}` }
     ];
 
     const menuItems = [
         { icon: UserCircle, label: "My Profile", href: "/profile" },
-        { icon: Package, label: "My Orders", href: "/orders" },
-        ...(isAdmin ? [{ icon: Crown, label: "Admin Dashboard", href: "/admin" }] : []),
+        // { icon: Package, label: "My Orders", href: "/orders" },
+        ...(isAdmin
+            ? [
+                { icon: Crown, label: "AdminDashboard", href: "/dashboard" },
+            ]
+            : []),
     ];
 
     return (
@@ -1182,6 +1283,14 @@ export default function Header() {
         if (!found) return;
         router.push(`/products?category=${encodeURIComponent(found.slug)}`);
     };
+
+    const onSearchProducts = (query: string) => {
+        const params = new URLSearchParams();
+        const trimmed = query.trim();
+        if (trimmed) params.set("search", trimmed);
+        const suffix = params.toString();
+        router.push(`/products${suffix ? `?${suffix}` : ""}`);
+    };
     const navItems = useMemo<NavItem[]>(() => {
         const first = STATIC_NAV_ITEMS[0];
         const middle = STATIC_NAV_ITEMS.slice(1);
@@ -1322,9 +1431,21 @@ export default function Header() {
                     : "bg-white/95 border-b border-[#E7E2DE] shadow-sm backdrop-filter backdrop-blur-xl"
                     }`}
             >
+                {/* Announcement Bar */}
+                <div className="w-full bg-[#6B0F1A]">
+                    <div className="container mx-auto px-3">
+                        <p
+                            className="py-1 text-center  text-[9px] font-semibold uppercase tracking-[0.18em] text-[#F5EFE9] md:text-[10px]"
+                            style={{ fontFamily: FONTS.nav }}
+                        >
+                            Welcome Gift: Free Delivery on Your First Purchase
+                        </p>
+                    </div>
+                </div>
+
                 {/* Main Header Bar */}
                 <div className="container mx-auto px-3 py-0.5">
-                    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+                    <div className="relative flex items-center justify-between gap-2">
                         {/* Logo (left) - Visible on all devices */}
                         <Link href="/" className="flex items-center gap-2" onClick={closeAll}>
                             <motion.div
@@ -1342,7 +1463,7 @@ export default function Header() {
                         </Link>
 
                         {/* Brand Center with Curvy Design - Hidden on mobile, visible on desktop */}
-                        <div className="hidden md:flex justify-center">
+                        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden w-full -translate-x-1/2 -translate-y-1/2 justify-center md:flex">
                             <motion.div
                                 initial={{ opacity: 0, y: -5 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -1479,7 +1600,7 @@ export default function Header() {
                                     loading={commerceLoading}
                                 />
                                 <IconButton
-                                    icon={ShoppingBag}
+                                    icon={ShoppingCart}
                                     label="Cart"
                                     onClick={() => togglePanel("cart")}
                                     active={activePanel === "cart"}
@@ -1545,15 +1666,15 @@ export default function Header() {
                                                 </div>
                                             ))
                                         ) : (
-                                        navItems.map((item, index) => {
-                                            const isCategoryActive = Boolean(
-                                                item.categorySlug && activeCategorySlugs.includes(item.categorySlug)
-                                            );
-                                            const isActive = item.categorySlug
-                                                ? isCategoryActive
-                                                : isNavActive(item.href);
-                                            const isSale = item.label === "SALE" || item.isSale;
-                                            const isNew = item.label === "NEW ARRIVALS" || item.label === "New Arrivals";
+                                            navItems.map((item, index) => {
+                                                const isCategoryActive = Boolean(
+                                                    item.categorySlug && activeCategorySlugs.includes(item.categorySlug)
+                                                );
+                                                const isActive = item.categorySlug
+                                                    ? isCategoryActive
+                                                    : isNavActive(item.href);
+                                                const isSale = item.label === "SALE" || item.isSale;
+                                                const isNew = item.label === "NEW ARRIVALS" || item.label === "New Arrivals";
 
                                                 return (
                                                     <motion.div
@@ -1687,77 +1808,77 @@ export default function Header() {
                                 <div className="relative overflow-x-auto py-1 scrollbar-hide">
                                     <div className="flex items-center justify-center gap-1.5 min-w-max mx-auto px-2">
                                         {isCategoriesLoading ? (
-                                    // Skeleton for mobile nav items
-                                    Array.from({ length: 4 }).map((_, index) => (
-                                        <div key={index} className="px-3 py-1.5">
-                                            <NavItemSkeleton />
-                                        </div>
-                                    ))
-                                ) : (
-                                    navItems.map((item) => {
-                                        const isCategoryActive = Boolean(
-                                            item.categorySlug && activeCategorySlugs.includes(item.categorySlug)
-                                        );
-                                        const isActive = item.categorySlug
-                                            ? isCategoryActive
-                                            : isNavActive(item.href);
-                                        const isSale = item.label === "SALE" || item.isSale;
-                                        const isNew = item.label === "NEW ARRIVALS" || item.label === "New Arrivals";
+                                            // Skeleton for mobile nav items
+                                            Array.from({ length: 4 }).map((_, index) => (
+                                                <div key={index} className="px-3 py-1.5">
+                                                    <NavItemSkeleton />
+                                                </div>
+                                            ))
+                                        ) : (
+                                            navItems.map((item) => {
+                                                const isCategoryActive = Boolean(
+                                                    item.categorySlug && activeCategorySlugs.includes(item.categorySlug)
+                                                );
+                                                const isActive = item.categorySlug
+                                                    ? isCategoryActive
+                                                    : isNavActive(item.href);
+                                                const isSale = item.label === "SALE" || item.isSale;
+                                                const isNew = item.label === "NEW ARRIVALS" || item.label === "New Arrivals";
 
-                                        return (
-                                            <motion.div
-                                                key={item.label}
-                                                whileTap={{ scale: 0.95 }}
-                                                className="relative"
-                                            >
-                                                <Link
-                                                    href={item.href}
-                                                    onClick={closeAll}
-                                                    className={`
+                                                return (
+                                                    <motion.div
+                                                        key={item.label}
+                                                        whileTap={{ scale: 0.95 }}
+                                                        className="relative"
+                                                    >
+                                                        <Link
+                                                            href={item.href}
+                                                            onClick={closeAll}
+                                                            className={`
                                     relative flex items-center justify-center
                                     rounded-full px-3 py-1.5
                                     text-[9px] font-medium uppercase tracking-[0.12em]
                                     transition-all duration-150
                                     ${isActive
-                                                            ? 'bg-linear-to-r from-[#F5EFE9] to-[#F5EFE9]/80 text-[#6B0F1A] shadow-[0_1px_3px_rgba(31,27,24,0.05)]'
-                                                            : isSale
-                                                                ? 'text-[#C41E3A] hover:bg-linear-to-r hover:from-[#C41E3A]/5 hover:to-[#FF3366]/5'
-                                                                : isNew
-                                                                    ? 'text-[#1F1B18] hover:bg-linear-to-r hover:from-[#6B0F1A]/5 hover:to-[#D4A76A]/5'
-                                                                    : 'text-[#8C7F78] hover:bg-linear-to-r hover:from-[#1F1B18]/5 hover:to-[#6B0F1A]/5 hover:text-[#1F1B18]'
-                                                        }
+                                                                    ? 'bg-linear-to-r from-[#F5EFE9] to-[#F5EFE9]/80 text-[#6B0F1A] shadow-[0_1px_3px_rgba(31,27,24,0.05)]'
+                                                                    : isSale
+                                                                        ? 'text-[#C41E3A] hover:bg-linear-to-r hover:from-[#C41E3A]/5 hover:to-[#FF3366]/5'
+                                                                        : isNew
+                                                                            ? 'text-[#1F1B18] hover:bg-linear-to-r hover:from-[#6B0F1A]/5 hover:to-[#D4A76A]/5'
+                                                                            : 'text-[#8C7F78] hover:bg-linear-to-r hover:from-[#1F1B18]/5 hover:to-[#6B0F1A]/5 hover:text-[#1F1B18]'
+                                                                }
                                 `}
-                                                    style={{ fontFamily: FONTS.nav }}
-                                                >
-                                                    {/* Icon indicators for mobile */}
-                                                    {isSale && (
-                                                        <span className="mr-1 text-[8px]">🔥</span>
-                                                    )}
+                                                            style={{ fontFamily: FONTS.nav }}
+                                                        >
+                                                            {/* Icon indicators for mobile */}
+                                                            {isSale && (
+                                                                <span className="mr-1 text-[8px]">🔥</span>
+                                                            )}
 
-                                                    {isNew && !isSale && (
-                                                        <Sparkles className="mr-1 h-2 w-2 text-[#D4A76A]" />
-                                                    )}
+                                                            {isNew && !isSale && (
+                                                                <Sparkles className="mr-1 h-2 w-2 text-[#D4A76A]" />
+                                                            )}
 
-                                                    <span className={`
+                                                            <span className={`
                                     ${isActive ? 'font-semibold' : ''}
                                     ${isSale && !isActive ? 'font-bold' : ''}
                                 `}>
-                                                        {item.label}
-                                                    </span>
+                                                                {item.label}
+                                                            </span>
 
-                                                    {/* Active indicator for mobile */}
-                                                    {isActive && (
-                                                        <div className="absolute -bottom-0.5 left-1/2 h-0.5 w-0.5 -translate-x-1/2 rounded-full bg-linear-to-r from-[#6B0F1A] to-[#D4A76A]" />
-                                                    )}
-                                                </Link>
+                                                            {/* Active indicator for mobile */}
+                                                            {isActive && (
+                                                                <div className="absolute -bottom-0.5 left-1/2 h-0.5 w-0.5 -translate-x-1/2 rounded-full bg-linear-to-r from-[#6B0F1A] to-[#D4A76A]" />
+                                                            )}
+                                                        </Link>
 
-                                                {/* Sale badge for mobile */}
-                                                {isSale && !isActive && (
-                                                    <div className="absolute -top-0.5 -right-0.5 h-1 w-1 rounded-full bg-linear-to-r from-[#C41E3A] to-[#FF3366] ring-0.5 ring-white" />
-                                                )}
-                                            </motion.div>
-                                        );
-                                    })
+                                                        {/* Sale badge for mobile */}
+                                                        {isSale && !isActive && (
+                                                            <div className="absolute -top-0.5 -right-0.5 h-1 w-1 rounded-full bg-linear-to-r from-[#C41E3A] to-[#FF3366] ring-0.5 ring-white" />
+                                                        )}
+                                                    </motion.div>
+                                                );
+                                            })
                                         )}
                                     </div>
                                 </div>
@@ -1775,6 +1896,7 @@ export default function Header() {
                 categories={categoryNames}
                 isLoading={isCategoriesLoading}
                 onPickCategory={onPickCategory}
+                onSearch={onSearchProducts}
             />
 
             <WishlistPanel

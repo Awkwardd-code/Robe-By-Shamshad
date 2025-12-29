@@ -5,7 +5,17 @@ const AUTH_SECRET = process.env.AUTH_SECRET;
 const SECRET_KEY = AUTH_SECRET ? new TextEncoder().encode(AUTH_SECRET) : null;
 const AUTH_COOKIE_NAME = 'rbs_session';
 const PROTECTED_ROUTES = ['/profile'];
-const ADMIN_ROUTES = ['/dashboard', '/categories', '/users', '/collections', '/coupons', '/newsletter', '/offers',"/orders"];
+const ADMIN_ROUTES = [
+  '/dashboard',
+  '/categories',
+  '/users',
+  '/collections',
+  '/coupons',
+  '/newsletter',
+  '/offers',
+  '/orders',
+  '/seasonal-collection'
+];
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password', '/reset-password'];
 
 const matchesRoute = (pathname: string, route: string) =>

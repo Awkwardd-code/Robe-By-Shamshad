@@ -1,153 +1,277 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 
 type Feature = {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   icon: React.ReactNode;
   href?: string;
+  align?: "left" | "center";
+  iconTone?: "primary" | "muted";
 };
 
+const TOKENS = {
+  bg: "#FFFFFF",
+  primary: "#5B1B1B", // burgundy/maroon
+  body: "#4B4B4B", // body text
+  muted: "#A9A9A9", // outline icon gray
+};
+
+function TruckSmallFilled({ className }: { className?: string }) {
+  // Matches screenshot: simple filled truck silhouette
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 64 40"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      {/* cargo */}
+      <rect x="4" y="10" width="34" height="18" rx="2" />
+      {/* cab */}
+      <path d="M38 16h10c1 0 1.9.4 2.6 1.1l6 6c.7.7 1.1 1.6 1.1 2.6v2.3H38V16z" />
+      {/* wheels */}
+      <circle cx="18" cy="32" r="4.2" />
+      <circle cx="48" cy="32" r="4.2" />
+      {/* wheel cutouts (subtle) */}
+      <circle cx="18" cy="32" r="2.1" fill={TOKENS.bg} opacity="0.22" />
+      <circle cx="48" cy="32" r="2.1" fill={TOKENS.bg} opacity="0.22" />
+    </svg>
+  );
+}
+
+function TruckBigFilled({ className }: { className?: string }) {
+  // Slightly chunkier variant for the bottom-left delivery item in screenshot
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 64 48"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <rect x="6" y="14" width="34" height="20" rx="2.5" />
+      <path d="M40 20h11c1 0 2 .4 2.7 1.2l6.2 6.2c.8.8 1.2 1.7 1.2 2.7V34H40V20z" />
+      <circle cx="20" cy="38" r="5" />
+      <circle cx="50" cy="38" r="5" />
+      <circle cx="20" cy="38" r="2.4" fill={TOKENS.bg} opacity="0.22" />
+      <circle cx="50" cy="38" r="2.4" fill={TOKENS.bg} opacity="0.22" />
+    </svg>
+  );
+}
+
+function RotateArrows({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 64 64"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 22a18 18 0 1 1-2 22" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 14v10h10" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M46 50V40H36" />
+    </svg>
+  );
+}
+
+function PhoneCard({ className }: { className?: string }) {
+  // Gray outline icon similar to screenshot
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 64 64"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      aria-hidden="true"
+    >
+      <rect x="10" y="12" width="26" height="40" rx="3.5" />
+      <path strokeLinecap="round" d="M18 20h10" />
+      <rect x="28" y="22" width="26" height="30" rx="3.5" />
+      <path strokeLinecap="round" d="M28 30h26" />
+      <path strokeLinecap="round" d="M34 44h6" />
+    </svg>
+  );
+}
+
+function TshirtWithFb({ className }: { className?: string }) {
+  // Matches screenshot: tshirt outline + small FB maroon badge
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 64 64"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      aria-hidden="true"
+    >
+      {/* tshirt */}
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M22 14l10 4 10-4 10 8-6 7v23H18V29l-6-7 10-8z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M26 18c0 3 3 5 6 5s6-2 6-5" />
+
+      {/* fb badge */}
+      <circle cx="52" cy="18" r="8" fill={TOKENS.primary} stroke="none" />
+      <path
+        d="M54.1 23v-6.2h2v-2.3h-2c0-2.1.8-3.2 3-3.2V9c-4.2 0-5.6 2.2-5.6 5.2h-1.8v2.3h1.8V23h2.6z"
+        fill="#fff"
+      />
+    </svg>
+  );
+}
+
+function Leaf({ className }: { className?: string }) {
+  // Maroon outline leaf similar to screenshot
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 64 64"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 38C18 16 40 10 56 14c-2 20-16 38-36 38-6 0-10-4-8-14z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M22 46c10-10 20-16 30-18" />
+    </svg>
+  );
+}
+
 export default function FeaturesGrid() {
+  // NOTE: The screenshot text contains some imperfect/placeholder copy.
+  // Replace the description strings with your real content as needed.
   const features: Feature[] = [
+    // Row 1
     {
-      id: "delivery",
-      title: "Free Delivery",
-      description: "1–3 days delivery in your area",
-      icon: (
-        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h11v10H3V7Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4l3 3v4h-7v-7Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M7 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M18 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
-        </svg>
-      ),
+      id: "deliveryTop",
+      title: "FREE\nDELIVERY",
+      description: "Time delivery in\n12:00DT\nDelivery",
+      icon: <TruckSmallFilled className="h-11 w-11" />,
+      align: "left",
+      iconTone: "primary",
     },
     {
-      id: "returns",
-      title: "Easy Returns",
-      description: "Easy return in case of any issue",
-      icon: (
-        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 12a9 9 0 1 0 9-9" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 4v6h6" />
-        </svg>
-      ),
+      id: "policiesTop",
+      title: "EASY Policies",
+      description: "Easy return in a city day",
+      icon: <RotateArrows className="h-12 w-12" />,
+      align: "center",
+      iconTone: "muted",
     },
     {
-      id: "payment",
-      title: "Secure Payment",
-      description: "Cash / card / mobile banking",
-      icon: (
-        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2 10h20" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 15h2" />
-        </svg>
-      ),
+      id: "paymentTop",
+      title: "Socure\nPayment",
+      description: "Cash / card / mobile",
+      icon: <PhoneCard className="h-12 w-12" />,
+      align: "left",
+      iconTone: "muted",
     },
     {
-      id: "styles",
-      title: "Thousands of Styles",
-      description: "New arrivals every week",
-      icon: (
-        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7l4-2 4 2v14l-4-2-4 2V7Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 10h6" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6" />
-        </svg>
-      ),
+      id: "stylesTop",
+      title: "Over Thousands\nStyles",
+      description: "",
+      icon: <TshirtWithFb className="h-12 w-12" />,
+      align: "center",
+      iconTone: "muted",
+      href: "/products",
+    },
+
+    // Row 2
+    {
+      id: "deliveryBottom",
+      title: "",
+      description: "The delivery\n16:00DT\nDelivery",
+      icon: <TruckBigFilled className="h-12 w-12" />,
+      align: "left",
+      iconTone: "primary",
     },
     {
-      id: "support",
-      title: "24/7 Support",
-      description: "We’re here whenever you need",
-      icon: (
-        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M18 10a6 6 0 0 0-12 0v5a2 2 0 0 0 2 2h1v-7H8" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16 10h-1v7h1a2 2 0 0 0 2-2v-5Z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 17v2a2 2 0 0 1-2 2H8" />
-        </svg>
-      ),
+      id: "returnsBottom",
+      title: "EASY Returns",
+      description: "Easy return in city day",
+      icon: <RotateArrows className="h-12 w-12" />,
+      align: "center",
+      iconTone: "primary",
+    },
+    {
+      id: "paymentBottom",
+      title: "Socure\nPayment",
+      description: "Cash / card / mobile",
+      icon: <PhoneCard className="h-12 w-12" />,
+      align: "left",
+      iconTone: "muted",
+    },
+    {
+      id: "socialBottom",
+      title: "Social Media",
+      description: "Explore you need",
+      icon: <Leaf className="h-12 w-12" />,
+      align: "center",
+      iconTone: "primary",
+      href: "/social",
     },
   ];
 
+  const FeatureItem = (f: Feature) => {
+    const isLeft = f.align === "left";
+    const iconColor = f.iconTone === "muted" ? TOKENS.muted : TOKENS.primary;
+
+    return (
+      <div className={isLeft ? "flex items-start gap-5" : "flex flex-col items-center text-center"}>
+        {/* icon */}
+        <div style={{ color: iconColor }} className={isLeft ? "mt-1" : "mb-2"}>
+          {f.icon}
+        </div>
+
+        {/* text */}
+        <div className={isLeft ? "" : "flex flex-col items-center"}>
+          {f.title ? (
+            <div
+              className="whitespace-pre-line text-[15px] font-semibold leading-[1.1] tracking-wide"
+              style={{ color: TOKENS.primary }}
+            >
+              {f.title}
+            </div>
+          ) : null}
+
+          {f.description ? (
+            <div
+              className="mt-2 whitespace-pre-line text-[12px] leading-5"
+              style={{ color: TOKENS.body }}
+            >
+              {f.description}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <section className="w-full bg-white py-10">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Minimal header */}
-        <div className="mb-8 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold tracking-widest text-gray-500 uppercase">
-              Why shop with us
-            </p>
-            <h2 className="mt-2 text-2xl md:text-3xl font-bold text-gray-900">
-              Shopping made simple
-            </h2>
-          </div>
+    <section className="w-full" style={{ backgroundColor: TOKENS.bg }}>
+      <div className="mx-auto max-w-6xl px-6 py-14">
+        {/* Matches screenshot: 4 columns x 2 rows (8 items) */}
+        <div className="grid grid-cols-2 gap-x-14 gap-y-16 md:grid-cols-4">
+          {features.map((f) => {
+            const content = FeatureItem(f);
 
-          <Link
-            href="/products"
-            className="hidden sm:inline-flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-gray-700"
-          >
-            Browse products
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
+            return f.href ? (
+              <Link key={f.id} href={f.href} className="block no-underline">
+                {content}
+              </Link>
+            ) : (
+              <div key={f.id}>{content}</div>
+            );
+          })}
         </div>
-
-        {/* New design: “stepper / timeline” feel */}
-        <div className="relative">
-          {/* line */}
-          <div className="absolute left-4 top-3 bottom-3 hidden md:block w-px bg-linear-to-b from-transparent via-gray-200 to-transparent" />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {features.map((f, idx) => {
-              const Card = (
-                <div className="group relative flex items-start gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5">
-                  {/* index chip */}
-                  <div className="hidden md:flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-xs font-bold text-gray-700">
-                    {String(idx + 1).padStart(2, "0")}
-                  </div>
-
-                  {/* icon */}
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-50 border border-gray-200 text-[#5b1b1b] transition-colors group-hover:bg-gray-100">
-                    {f.icon}
-                  </div>
-
-                  {/* text */}
-                  <div className="min-w-0">
-                    <h3 className="text-sm md:text-base font-semibold text-gray-900">
-                      {f.title}
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-500 leading-relaxed">
-                      {f.description}
-                    </p>
-
-                    {/* subtle underline */}
-                    <div className="mt-3 h-px w-12 bg-linear-to-r from-[#5b1b1b]/40 to-transparent transition-all duration-300 group-hover:w-20" />
-                  </div>
-
-                  {/* corner */}
-                  <div className="pointer-events-none absolute right-4 top-4 h-2 w-2 rounded-full bg-[#5b1b1b]/30 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              );
-
-              return f.href ? (
-                <Link key={f.id} href={f.href} className="block">
-                  {Card}
-                </Link>
-              ) : (
-                <div key={f.id}>{Card}</div>
-              );
-            })}
-          </div>
-        </div>
-
-
       </div>
     </section>
   );

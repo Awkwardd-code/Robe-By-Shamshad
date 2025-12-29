@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useLayoutEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -188,7 +188,7 @@ function MostPopularSkeleton({
       <div
         className={
           isMobile
-            ? "flex gap-5 md:gap-6 lg:gap-8"
+            ? "flex gap-0"
             : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8"
         }
       >
@@ -242,16 +242,15 @@ export default function MostPopularSlider({
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const [itemsPerView, setItemsPerView] = useState(4);
+  const [itemsPerView, setItemsPerView] = useState(2);
   const [products, setProducts] = useState<PopularProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const update = () => {
       const w = window.innerWidth;
-      if (w < 640) return 1;
       if (w < 768) return 2;
       if (w < 1024) return 3;
       return 4;
@@ -355,7 +354,10 @@ export default function MostPopularSlider({
     const productHref = `/products/${product.slug}`;
 
     return (
-      <div className="shrink-0" style={{ minWidth: `${slideWidthPercent}%` }}>
+      <div
+        className="shrink-0 box-border px-2 sm:px-3 lg:px-4"
+        style={{ flex: `0 0 ${slideWidthPercent}%`, maxWidth: `${slideWidthPercent}%` }}
+      >
         <div
           className="group relative overflow-hidden rounded-2xl bg-white border transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
           style={{ 
@@ -412,13 +414,13 @@ export default function MostPopularSlider({
                 src={product.image || FALLBACK_IMAGE}
                 alt={product.name}
                 fill
-                className="object-contain p-4 transition-transform duration-500 group-hover:scale-105"
+                className="object-contain p-4 transition-transform duration-500 lg:group-hover:scale-105"
                 sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
               />
             </Link>
             
             {/* Quick Add to Cart on Image Hover */}
-            <div className="absolute bottom-0 left-0 right-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+            <div className="absolute bottom-0 left-0 right-0 translate-y-0 lg:translate-y-full lg:group-hover:translate-y-0 transition-transform duration-300">
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -428,7 +430,7 @@ export default function MostPopularSlider({
                 disabled={out || inCart}
                 className="w-full py-3 text-sm font-semibold text-white transition-opacity"
                 style={{ 
-                  backgroundColor: TOKENS.accentDark,
+                  backgroundColor: "#6B0F1A",
                   opacity: out || inCart ? 0.7 : 1,
                   cursor: out || inCart ? "not-allowed" : "pointer"
                 }}
@@ -500,12 +502,12 @@ export default function MostPopularSlider({
               disabled={out || inCart}
               className="w-full py-3 rounded-lg text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md"
               style={{ 
-                backgroundColor: out ? TOKENS.border : inCart ? TOKENS.success : TOKENS.accent,
+                backgroundColor: out ? TOKENS.border : inCart ? TOKENS.success : "#6B0F1A",
                 color: "white"
               }}
             >
               <ShoppingBag className="w-4 h-4" />
-              {out ? "Out of Stock" : inCart ? "Added to Cart" : "Add to Cart"}
+              {out ? "Out of Stock" : inCart ? "In Cart" : "Add to Cart"}
             </button>
           </div>
         </div>
@@ -590,7 +592,7 @@ export default function MostPopularSlider({
               onMouseLeave={() => setIsHovered(false)}
             >
               <motion.div
-                className="flex gap-5 md:gap-6 lg:gap-8 will-change-transform"
+                className="flex gap-0 will-change-transform"
                 animate={{ x: `-${translatePercent}%` }}
                 transition={{ 
                   type: "spring", 
