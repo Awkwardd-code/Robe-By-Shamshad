@@ -803,14 +803,14 @@ export default function ComboOfferDetail({
     "bg-rose-50 ring-rose-200 text-rose-700 hover:bg-rose-100 hover:shadow-md";
 
   const primaryBtnBase =
-    "group inline-flex items-center justify-center gap-2 rounded-none px-6 py-3 text-sm font-bold tracking-wide transition-all duration-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60";
+    "group  inline-flex items-center justify-center gap-2 rounded-none px-6 py-3 text-sm font-bold tracking-wide transition-all duration-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60";
   const primaryBtn =
     "bg-slate-100 text-[#944C35] shadow-sm hover:bg-slate-200";
   const primaryBtnDisabled =
     "bg-slate-200 text-slate-400 shadow-none";
 
   const secondaryBtn =
-    "bg-slate-100 text-black hover:bg-slate-200";
+    "bg-[#6B0F1A] text-white hover:bg-[#6B0F1A]";
 
   const tabBase =
     "cursor-pointer rounded-none px-6 py-3 text-sm font-extrabold text-[#944C35] transition-all duration-200";
@@ -1358,10 +1358,10 @@ export default function ComboOfferDetail({
                       disabled={!inStock || !isActive}
                       className={[
                         primaryBtnBase,
-                        "flex-1 bg-slate-100",
+                        "flex-1 bg-[#6B0F1A]",
                         inStock && isActive
                           ? secondaryBtn
-                          : "border-2 border-slate-200 bg-slate-100 text-slate-400",
+                          : "border-2 border-slate-200 bg-[#6B0F1A] text-slate-400",
                       ].join(" ")}
                     >
                       Buy Now

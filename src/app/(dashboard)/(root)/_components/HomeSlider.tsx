@@ -109,7 +109,7 @@ function EidGeometricBg() {
 function EidSliderSkeleton() {
   return (
     <section
-      className="relative z-0 mt-3 w-full overflow-hidden rounded-2xl lg:rounded-3xl shadow-2xl md:mt-0 aspect-4/3 md:aspect-22/9"
+      className="relative z-0 mt-3 w-full overflow-hidden rounded-2xl lg:rounded-3xl shadow-2xl md:mt-0 aspect-video md:aspect-22/9"
       style={{ backgroundColor: THEME.frameBg }}
     >
       <EidGeometricBg />
@@ -328,7 +328,7 @@ export default function ModernElegantSlider_EidBannerFrame() {
   if (!totalSlides) {
     return (
       <section
-        className="relative z-0 mt-3 w-full overflow-hidden rounded-2xl lg:rounded-3xl shadow-2xl md:mt-0 aspect-4/3 md:aspect-22/9"
+        className="relative z-0 mt-3 w-full overflow-hidden rounded-2xl lg:rounded-3xl shadow-2xl md:mt-0 aspect-video md:aspect-22/9"
         style={{ backgroundColor: THEME.frameBg }}
       >
         <EidGeometricBg />
@@ -343,7 +343,7 @@ export default function ModernElegantSlider_EidBannerFrame() {
 
   return (
     <section
-      className="relative z-0 mt-3 w-full overflow-hidden  shadow-2xl md:mt-0 aspect-4/3 md:aspect-22/9"
+      className="relative z-0 mt-3 w-full overflow-hidden  shadow-2xl md:mt-0 aspect-video md:aspect-22/9"
       onMouseEnter={() => {
         setIsHovering(true);
         setIsAuto(false);
@@ -372,14 +372,14 @@ export default function ModernElegantSlider_EidBannerFrame() {
             className="absolute inset-0"
           >
             {/* Main slide image */}
-            <div className="absolute -inset-x-6 -inset-y-4 overflow-hidden md:inset-y-0">
+            <div className="absolute inset-0 overflow-hidden md:-inset-x-6 md:inset-y-0">
               <Image
                 src={active.image}
                 alt={active.title}
                 fill
                 priority
                 sizes="100vw"
-                className="object-cover"
+                className="object-contain md:object-cover"
                 quality={100}
               />
 
@@ -402,7 +402,7 @@ export default function ModernElegantSlider_EidBannerFrame() {
             <div className="absolute inset-0 flex items-center justify-center px-4">
               <div className="mx-auto text-center max-w-[92%] sm:max-w-3xl md:max-w-4xl">
                 <h2
-                  className={`${titleFont.className} text-white font-semibold uppercase tracking-[0.06em] sm:tracking-widest leading-tight sm:leading-none drop-shadow-[0_10px_24px_rgba(0,0,0,0.35)]`}
+                  className={`${titleFont.className}  text-[#6B0F1A] font-semibold uppercase tracking-[0.06em] sm:tracking-widest leading-tight sm:leading-none drop-shadow-[0_10px_24px_rgba(0,0,0,0.35)]`}
                 >
                   <span className="text-xl sm:text-3xl md:text-5xl lg:text-6xl">
                     {active.title}
@@ -410,7 +410,7 @@ export default function ModernElegantSlider_EidBannerFrame() {
                 </h2>
 
                 <p
-                  className={`${descFont.className} mt-2 sm:mt-3 text-white/95 font-medium tracking-[0.02em] sm:tracking-[0.05em] leading-snug sm:leading-normal drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)]`}
+                  className={`${descFont.className} mt-2 sm:mt-3 text-[#6B0F1A]  font-medium tracking-[0.02em] sm:tracking-[0.05em] leading-snug sm:leading-normal drop-shadow-[0_8px_18px_rgba(0,0,0,0.35)]`}
                 >
                   <span className="text-[11px] sm:text-sm md:text-lg">
                     {active.subtitle}

@@ -146,8 +146,6 @@ export default function EidNewsletterPage() {
           className="object-cover"
         />
 
-        <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/35 to-black/10" />
-        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-black/20" />
       </div>
 
       <div className="absolute inset-0 flex items-center">
@@ -190,27 +188,12 @@ export default function EidNewsletterPage() {
               </p>
             )}
 
-            {error && (
-              <p
-                className={`${uiFont.className} text-xs sm:text-sm font-semibold`}
-                style={{ color: THEME.accent }}
-              >
-                {error}
-              </p>
-            )}
+
           </motion.div>
         </div>
       </div>
 
-      <div className="pointer-events-none absolute right-6 bottom-6 hidden sm:block">
-        <div
-          className="h-12 w-12 rounded-full border"
-          style={{
-            borderColor: THEME.accentDeep,
-            boxShadow: "0 0 0 8px rgba(217, 179, 107, 0.2)",
-          }}
-        />
-      </div>
+
     </section>
   );
 }

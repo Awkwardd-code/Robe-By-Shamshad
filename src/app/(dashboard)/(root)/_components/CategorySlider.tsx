@@ -34,7 +34,13 @@ interface CategorySliderProps {
   isLoading?: boolean;
 }
 
-const PASTEL_BG = ["#BDDCE7", "#FCD2DC", "#A2CFE8", "#F7F0DC"]; // matches the reference tiles
+// Reference-like tile gradients (instead of flat colors)
+const PASTEL_GRADIENTS = [
+  "linear-gradient(135deg, #BDDCE7 0%, #F7F0DC 100%)",
+  "linear-gradient(135deg, #FCD2DC 0%, #F7F0DC 100%)",
+  "linear-gradient(135deg, #A2CFE8 0%, #F7F0DC 100%)",
+  "linear-gradient(135deg, #FCD2DC 0%, #F7F0DC 100%)",
+];
 
 // Tiny helper: subtle shadow under product cutout feel
 const shadowStyle =
@@ -57,10 +63,10 @@ function MiniTileSkeleton({
         {Array.from({ length: count }).map((_, i) => (
           <div
             key={i}
-            className="relative shrink-0 overflow-hidden"
+            className="relative shrink-0 overflow-hidden rounded-xl"
             style={{
               minWidth: `calc(${tileWidthPercent}% - ${gapOffset}px)`,
-              background: PASTEL_BG[i % PASTEL_BG.length],
+              backgroundImage: PASTEL_GRADIENTS[i % PASTEL_GRADIENTS.length],
               height: 150,
             }}
           >
@@ -73,7 +79,46 @@ function MiniTileSkeleton({
               <div className="h-20 w-28 bg-black/10 rounded-xl animate-pulse" />
             </div>
 
-            <div className="absolute inset-0 bg-white/0">
+            <div className="absolute inset-0">
+              <motion.div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)",
+                }}
+                animate={{ x: ["-120%", "120%"] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </div>
+
+            <div className="absolute inset-0 border border-black/5 pointer-events-none" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MiniGridSkeleton({ count }: { count: number }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="relative overflow-hidden rounded-xl border border-black/5"
+          style={{
+            backgroundImage: PASTEL_GRADIENTS[i % PASTEL_GRADIENTS.length],
+          }}
+        >
+          <div className="aspect-3/2 w-full">
+            <div className="absolute left-3 top-3">
+              <div className="h-4 w-20 bg-black/10 rounded-sm animate-pulse" />
+              <div className="mt-1 h-2 w-14 bg-black/10 rounded-sm animate-pulse" />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-20 w-28 bg-black/10 rounded-xl animate-pulse" />
+            </div>
+            <div className="absolute inset-0">
               <motion.div
                 className="absolute inset-0"
                 style={{
@@ -85,7 +130,89 @@ function MiniTileSkeleton({
               />
             </div>
           </div>
-        ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CategoryTile({
+  category,
+  bg,
+  onSelect,
+  onKeyDown,
+}: {
+  category: CategoryItem;
+  bg: string;
+  onSelect: (slug: string) => void;
+  onKeyDown: (event: KeyboardEvent<HTMLDivElement>, slug: string) => void;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(category.slug)}
+      onKeyDown={(event) => onKeyDown(event, category.slug)}
+      aria-label={`Open ${category.name}`}
+      className="group relative w-full overflow-hidden cursor-pointer rounded-xl border border-black/5"
+      style={{ backgroundImage: bg }}
+    >
+      {/* Use aspect ratio to match the reference tile shape */}
+      <div className="aspect-3/2 w-full">
+        {/* Top-left "logo lockup" */}
+        <div className="absolute left-3 top-3 z-10 leading-none">
+          <div
+            className="text-[13px] sm:text-[14px] font-black uppercase tracking-tight text-black/90"
+            style={{ letterSpacing: "-0.02em" }}
+          >
+            {category.name}
+          </div>
+          <div className="mt-0.5 text-[8px] uppercase tracking-[0.45em] text-black/70">
+            {String(category.productCount).padStart(2, "0")} ITEMS
+          </div>
+        </div>
+
+        {/* Product image: large, centered, editorial crop */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="relative h-[78%] w-[92%]">
+            <Image
+              src={category.image || FALLBACK_IMAGE}
+              alt={category.name}
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className={`object-contain ${shadowStyle} transition-transform duration-500 ease-out group-hover:scale-[1.03]`}
+            />
+          </div>
+        </div>
+
+        {/* Hover overlay (desktop hover + mobile tap/press) */}
+        <div className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-active:opacity-100">
+          <div className="absolute inset-0 bg-black/35" />
+          <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent,rgba(255,255,255,0.10),transparent)]" />
+
+          <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
+            <div className="max-w-[90%] text-white">
+              <div className="text-sm sm:text-base font-extrabold uppercase tracking-wider">
+                {category.name}
+              </div>
+
+              {category.description ? (
+                <div className="mt-2 text-xs sm:text-sm text-white/90 line-clamp-2">
+                  {category.description}
+                </div>
+              ) : (
+                <div className="mt-2 text-xs sm:text-sm text-white/90">
+                  {category.productCount} products available
+                </div>
+              )}
+
+              <span className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-[11px] sm:text-xs font-semibold text-black">
+                Shop now
+                <ArrowRight className="h-4 w-4" />
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -101,9 +228,14 @@ export default function CategorySlider({
 
   const [remoteCategories, setRemoteCategories] = useState<CategoryItem[]>([]);
   const [isFetching, setIsFetching] = useState(false);
+
+  // slider state
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
   const [isHovering, setIsHovering] = useState(false);
+
+  // mobile detection for grid layout
+  const [isMobile, setIsMobile] = useState(false);
 
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -120,7 +252,12 @@ export default function CategorySlider({
   const [itemsPerView, setItemsPerView] = useState(getItemsPerView());
 
   useEffect(() => {
-    const handleResize = () => setItemsPerView(getItemsPerView());
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 640);
+      setItemsPerView(getItemsPerView());
+    };
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -160,10 +297,7 @@ export default function CategorySlider({
             const id =
               typeof rawId === "string"
                 ? rawId
-                : rawId?.toString?.() ??
-                  rawId?.$oid ??
-                  slug ??
-                  `category-${index}`;
+                : rawId?.toString?.() ?? rawId?.$oid ?? slug ?? `category-${index}`;
 
             const image =
               typeof category?.image === "string" && category.image.trim()
@@ -196,9 +330,7 @@ export default function CategorySlider({
           })
           .filter(Boolean) as CategoryItem[];
 
-        if (!cancelled) {
-          setRemoteCategories(mapped);
-        }
+        if (!cancelled) setRemoteCategories(mapped);
       } catch (error) {
         if (!cancelled) {
           console.error("Failed to load categories for slider:", error);
@@ -262,7 +394,7 @@ export default function CategorySlider({
     [maxIndex]
   );
 
-  // Touch handlers
+  // Touch handlers (slider only)
   const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
     setTouchStart(e.targetTouches[0].clientX);
     setIsAutoPlaying(false);
@@ -285,16 +417,29 @@ export default function CategorySlider({
     setTouchEnd(null);
   };
 
-  // Auto-play
+  // Auto-play (slider only)
   useEffect(() => {
-    if (!isAutoPlaying || slideCategories.length <= itemsPerView || isHovering) return;
+    if (isMobile) return;
+    if (!isAutoPlaying || slideCategories.length <= itemsPerView || isHovering)
+      return;
     const interval = setInterval(nextSlide, autoPlayInterval);
     return () => clearInterval(interval);
-  }, [isAutoPlaying, nextSlide, autoPlayInterval, slideCategories.length, itemsPerView, isHovering]);
+  }, [
+    isMobile,
+    isAutoPlaying,
+    nextSlide,
+    autoPlayInterval,
+    slideCategories.length,
+    itemsPerView,
+    isHovering,
+  ]);
 
-  // === Reference-style tile: text is minimal + only appears as overlay on hover ===
-  // - Default: show logo-ish lockup top-left (category name in a "logo-like" style)
-  // - Hover: show title + description + CTA, and redirect on click
+  // Mobile: render a 2x2 grid like the reference (first 4 categories)
+  const mobileGridItems = useMemo(
+    () => slideCategories.slice(0, 4),
+    [slideCategories]
+  );
+
   return (
     <section
       className="relative w-full pt-6 pb-8 md:pt-7 md:pb-10 overflow-hidden"
@@ -311,122 +456,83 @@ export default function CategorySlider({
       ) : null}
 
       <div className="relative px-4 sm:px-6">
-        <div
-          className="overflow-hidden"
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {isLoadingResolved ? (
-            <MiniTileSkeleton
-              count={itemsPerView === 1 ? 1 : Math.max(itemsPerView, 4)}
-              itemsPerView={itemsPerView}
-            />
+        {/* ===== MOBILE GRID (Reference-style 2x2) ===== */}
+        {isMobile ? (
+          isLoadingResolved ? (
+            <MiniGridSkeleton count={4} />
           ) : (
-            <motion.div
-              className="flex gap-0 sm:gap-3 md:gap-4 will-change-transform touch-none"
-              animate={{ x: `-${translatePercent}%` }}
-              transition={{ type: "spring", stiffness: 300, damping: 30, mass: 1 }}
-            >
-              {slideCategories.map((category, index) => {
-                const bg = PASTEL_BG[index % PASTEL_BG.length];
+            <div className="grid grid-cols-2 gap-3">
+              {mobileGridItems.map((category, index) => {
+                // alternate like the reference columns
+                const bg =
+                  PASTEL_GRADIENTS[index % PASTEL_GRADIENTS.length] ??
+                  PASTEL_GRADIENTS[0];
 
                 return (
-                  <motion.div
+                  <CategoryTile
                     key={category.id}
-                    className="relative shrink-0"
-                    style={{ minWidth: `${slideWidthPercent}%` }}
-                    whileHover={{ y: -2 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleCategorySelect(category.slug)}
-                      onKeyDown={(event) => handleCardKeyDown(event, category.slug)}
-                      aria-label={`Open ${category.name}`}
-                      className="group relative h-37.5 sm:h-40 md:h-42.5 w-full overflow-hidden cursor-pointer"
-                      style={{ background: bg }}
-                    >
-                      {/* Top-left "logo lockup" */}
-                      <div className="absolute left-3 top-3 z-1 leading-none">
-                        <div
-                          className="text-[13px] sm:text-[14px] font-black uppercase tracking-tight text-black/90"
-                          style={{
-                            // give it a "logo-ish" compact feel
-                            letterSpacing: "-0.02em",
-                          }}
-                        >
-                          {category.name}
-                        </div>
-                        {/* microline like reference */}
-                        <div className="mt-0.5 text-[8px] uppercase tracking-[0.45em] text-black/70">
-                          {/* from data only: use productCount to avoid static words */}
-                          {String(category.productCount).padStart(2, "0")} ITEMS
-                        </div>
-                      </div>
-
-                      {/* Product image: large, centered, editorial crop */}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="relative h-30 w-[92%]">
-                          <Image
-                            src={category.image || FALLBACK_IMAGE}
-                            alt={category.name}
-                            fill
-                            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                            className={`object-contain ${shadowStyle} transition-transform duration-500 ease-out group-hover:scale-[1.03]`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Hover overlay: show title + description + link hint (no static text) */}
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        {/* soft dark overlay for readability */}
-                        <div className="absolute inset-0 bg-black/35" />
-                        {/* subtle sheen */}
-                        <div className="absolute inset-0 bg-[linear-gradient(135deg,transparent,rgba(255,255,255,0.10),transparent)]" />
-
-                        <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
-                          <div className="max-w-[90%] text-white">
-                            <div className="text-sm sm:text-base font-extrabold uppercase tracking-wider">
-                              {category.name}
-                            </div>
-
-                            {/* Description from data only */}
-                            {category.description ? (
-                              <div className="mt-2 text-xs sm:text-sm text-white/90 line-clamp-2">
-                                {category.description}
-                              </div>
-                            ) : (
-                              <div className="mt-2 text-xs sm:text-sm text-white/90">
-                                {category.productCount} products available
-                              </div>
-                            )}
-
-                            {/* “Redirect hint” derived from slug (not static CTA copy) */}
-                            <button
-                              type="button"
-                              className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-[11px] sm:text-xs font-semibold text-black"
-                            >
-                              Shop now
-                              <ArrowRight className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Thin inner border like printed tiles */}
-                      <div className="absolute inset-0 border border-black/5 pointer-events-none" />
-                    </div>
-                  </motion.div>
+                    category={category}
+                    bg={bg}
+                    onSelect={handleCategorySelect}
+                    onKeyDown={handleCardKeyDown}
+                  />
                 );
               })}
-            </motion.div>
-          )}
-        </div>
+            </div>
+          )
+        ) : (
+          // ===== DESKTOP/TABLET SLIDER (existing behavior) =====
+          <div
+            className="overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            {isLoadingResolved ? (
+              <MiniTileSkeleton
+                count={itemsPerView === 1 ? 1 : Math.max(itemsPerView, 4)}
+                itemsPerView={itemsPerView}
+              />
+            ) : (
+              <motion.div
+                className="flex gap-0 sm:gap-3 md:gap-4 will-change-transform touch-none"
+                animate={{ x: `-${translatePercent}%` }}
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 30,
+                  mass: 1,
+                }}
+              >
+                {slideCategories.map((category, index) => {
+                  const bg =
+                    PASTEL_GRADIENTS[index % PASTEL_GRADIENTS.length] ??
+                    PASTEL_GRADIENTS[0];
 
-        {/* Minimal indicators (no static labels) */}
-        {!isLoadingResolved && maxIndex > 0 && (
+                  return (
+                    <motion.div
+                      key={category.id}
+                      className="relative shrink-0"
+                      style={{ minWidth: `${slideWidthPercent}%` }}
+                      whileHover={{ y: -2 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <CategoryTile
+                        category={category}
+                        bg={bg}
+                        onSelect={handleCategorySelect}
+                        onKeyDown={handleCardKeyDown}
+                      />
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            )}
+          </div>
+        )}
+
+        {/* Indicators (slider only) */}
+        {!isMobile && !isLoadingResolved && maxIndex > 0 && (
           <div className="mt-6 flex justify-center">
             <div className="flex items-center gap-2">
               {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
@@ -435,7 +541,9 @@ export default function CategorySlider({
                   onClick={() => goToSlide(idx)}
                   aria-label={`Go to position ${idx + 1}`}
                   className={`h-2 rounded-full transition-all ${
-                    idx === safeIndex ? "w-8 bg-black/70" : "w-2 bg-black/20 hover:bg-black/35"
+                    idx === safeIndex
+                      ? "w-8 bg-black/70"
+                      : "w-2 bg-black/20 hover:bg-black/35"
                   }`}
                 />
               ))}

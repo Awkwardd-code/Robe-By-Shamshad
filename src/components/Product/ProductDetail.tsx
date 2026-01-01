@@ -296,11 +296,11 @@ function SecondaryButton({
       onClick={onClick}
       disabled={disabled}
       className={[
-        "flex items-center justify-center gap-2 rounded-none px-6 py-3 text-sm font-semibold uppercase tracking-[0.15em] transition-all duration-200 whitespace-nowrap",
+        "flex items-center bg-[#6B0F1A] justify-center gap-2 rounded-none px-6 py-3 text-sm font-semibold uppercase tracking-[0.15em] transition-all duration-200 whitespace-nowrap",
         "border",
         disabled
-          ? "border-gray-200 text-gray-400 cursor-not-allowed"
-          : "border-[--robe-maroon] text-[--robe-maroon] hover:bg-[--robe-cream]",
+          ? "border-gray-200 bg-[#6B0F1A] text-white cursor-not-allowed"
+          : "border-[--robe-maroon] bg-[#6B0F1A] text-white hover:bg-[--robe-cream]",
         className,
       ].join(" ")}
     >

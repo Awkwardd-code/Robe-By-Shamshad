@@ -413,8 +413,45 @@ function Sidebar({ sidebarOpen, setSidebarOpen, variant = 'default' }: SidebarHe
                 </Link>
               </li>
 
-              {/* Subscribers */}
+              {/* Features Grid */}
               <li
+                className={`rounded-sm mb-1 last:mb-0 transition-all duration-200 ease-in-out ${ITEM_PAD} ${
+                  isActive('/features-grid')
+                    ? 'bg-linear-to-r from-slate-600 to-gray-700 text-white shadow-lg'
+                    : 'bg-slate-100 hover:bg-slate-200 hover:shadow-md dark:bg-slate-800 dark:hover:bg-slate-700/50'
+                }`}
+              >
+                <Link
+                  href="/features-grid"
+                  className="block text-gray-800 dark:text-gray-100 truncate transition-all duration-200 ease-in-out hover:text-slate-700 dark:hover:text-slate-200"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className={`grow flex items-center ${sidebarExpanded ? 'justify-start' : 'justify-center'}`}>
+                      <div
+                        className={`inline-flex items-center justify-center rounded-sm bg-white/60 dark:bg-slate-800/60 transition-all duration-200 ease-in-out hover:bg-slate-200 hover:shadow-sm dark:hover:bg-slate-700/40 ${ICON_BOX}`}
+                      >
+                        <svg
+                          className={`shrink-0 fill-current transition-all duration-200 ease-in-out ${
+                            isActive('/features-grid')
+                              ? 'text-slate-600'
+                              : 'text-slate-600 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200'
+                          }`}
+                          xmlns="http://www.w3.org/2000/svg"
+                          width={ICON_SIZE}
+                          height={ICON_SIZE}
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M1 1h5v5H1V1zm0 9h5v5H1v-5zm9-9h5v5h-5V1zm0 9h5v5h-5v-5z" />
+                        </svg>
+                      </div>
+                      <span className={LABEL_VISIBILITY}>Features Grid</span>
+                    </div>
+                  </div>
+                </Link>
+              </li>
+
+              {/* Subscribers */}
+             {/*  <li
                 className={`rounded-sm mb-1 last:mb-0 transition-all duration-200 ease-in-out ${ITEM_PAD} ${
                   isActive('/newsletter')
                     ? 'bg-linear-to-r from-emerald-500 to-lime-500 text-white shadow-lg'
@@ -450,7 +487,7 @@ function Sidebar({ sidebarOpen, setSidebarOpen, variant = 'default' }: SidebarHe
                     </div>
                   </div>
                 </Link>
-              </li>
+              </li> */}
 
               {/* Coupons */}
               <li

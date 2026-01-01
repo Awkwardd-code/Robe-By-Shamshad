@@ -1163,12 +1163,10 @@ const MobileMenu = ({
     isOpen,
     onClose,
     navItems,
-    isLoading,
 }: {
     isOpen: boolean;
     onClose: () => void;
     navItems: NavItem[];
-    isLoading: boolean;
 }) => {
     useEscToClose(isOpen, onClose);
     useLockBodyScroll(isOpen);
@@ -1222,30 +1220,20 @@ const MobileMenu = ({
                             </div>
 
                             <nav className="mb-8 space-y-1">
-                                {isLoading ? (
-                                    <>
-                                        {[1, 2, 3, 4, 5, 6].map((i) => (
-                                            <div key={i} className="border-b border-[#F5EFE9] py-3">
-                                                <NavItemSkeleton />
-                                            </div>
-                                        ))}
-                                    </>
-                                ) : (
-                                    navItems.map((item) => (
-                                        <a
-                                            key={item.label}
-                                            href={item.href}
-                                            onClick={onClose}
-                                            className={`block border-b border-[#F5EFE9] py-3 font-medium transition ${item.highlight
-                                                ? "text-[#C41E3A] hover:text-[#D63B54]"
-                                                : "text-[#1F1B18] hover:text-[#6B0F1A]"
-                                                } last:border-b-0`}
-                                            style={{ fontFamily: FONTS.nav }}
-                                        >
-                                            {item.label}
-                                        </a>
-                                    ))
-                                )}
+                                {navItems.map((item) => (
+                                    <a
+                                        key={item.label}
+                                        href={item.href}
+                                        onClick={onClose}
+                                        className={`block border-b border-[#F5EFE9] py-3 font-medium transition ${item.highlight
+                                            ? "text-[#C41E3A] hover:text-[#D63B54]"
+                                            : "text-[#1F1B18] hover:text-[#6B0F1A]"
+                                            } last:border-b-0`}
+                                        style={{ fontFamily: FONTS.nav }}
+                                    >
+                                        {item.label}
+                                    </a>
+                                ))}
                             </nav>
                         </div>
                     </motion.div>
@@ -1275,13 +1263,6 @@ export default function Header() {
 
     const categoryNames = useMemo(() => categoryOptions.map((category) => category.name), [categoryOptions]);
 
-    const categoryLinks = useMemo(() => {
-        return categoryOptions.slice(0, 6).map((c) => ({
-            name: c.name,
-            slug: c.slug,
-        }));
-    }, [categoryOptions]);
-
     const onPickCategory = (categoryName: string) => {
         const found = categoryOptions.find((c) => c.name === categoryName);
         if (!found) return;
@@ -1295,16 +1276,7 @@ export default function Header() {
         const suffix = params.toString();
         router.push(`/products${suffix ? `?${suffix}` : ""}`);
     };
-    const navItems = useMemo<NavItem[]>(() => {
-        const first = STATIC_NAV_ITEMS[0];
-        const middle = STATIC_NAV_ITEMS.slice(1);
-        const categoryItems = categoryLinks.map((category) => ({
-            label: category.name,
-            href: `/products?category=${encodeURIComponent(category.slug)}`,
-            categorySlug: category.slug,
-        }));
-        return [first, ...categoryItems, ...middle];
-    }, [categoryLinks]);
+    const navItems = useMemo<NavItem[]>(() => STATIC_NAV_ITEMS, []);
 
     useEffect(() => {
         let isActive = true;
@@ -1662,61 +1634,53 @@ export default function Header() {
                                 {/* Subtle navigation container */}
                                 <div className="relative overflow-x-auto py-1 scrollbar-hide">
                                     <div className="flex items-center justify-center gap-0.5 min-w-max mx-auto px-4">
-                                        {isCategoriesLoading ? (
-                                            // Skeleton for desktop nav items
-                                            Array.from({ length: 8 }).map((_, index) => (
-                                                <div key={index} className="px-3 py-1.5">
-                                                    <NavItemSkeleton />
-                                                </div>
-                                            ))
-                                        ) : (
-                                            navItems.map((item, index) => {
-                                                const isCategoryActive = Boolean(
-                                                    item.categorySlug && activeCategorySlugs.includes(item.categorySlug)
-                                                );
-                                                const isActive = item.categorySlug
-                                                    ? isCategoryActive
-                                                    : isNavActive(item.href);
-                                                const isSale = item.label === "SALE" || item.isSale;
-                                                const isNew = item.label === "NEW ARRIVALS" || item.label === "New Arrivals";
+                                        {navItems.map((item, index) => {
+                                            const isCategoryActive = Boolean(
+                                                item.categorySlug && activeCategorySlugs.includes(item.categorySlug)
+                                            );
+                                            const isActive = item.categorySlug
+                                                ? isCategoryActive
+                                                : isNavActive(item.href);
+                                            const isSale = item.label === "SALE" || item.isSale;
+                                            const isNew = item.label === "NEW ARRIVALS" || item.label === "New Arrivals";
 
-                                                return (
-                                                    <motion.div
-                                                        key={item.label}
-                                                        initial={false}
-                                                        animate={isActive ? "active" : "inactive"}
-                                                        variants={{
-                                                            active: {
-                                                                scale: 1,
-                                                                opacity: 1,
-                                                                transition: { duration: 0.15 }
-                                                            },
-                                                            inactive: {
-                                                                scale: 0.98,
-                                                                opacity: 0.95,
-                                                                transition: { duration: 0.1 }
-                                                            }
-                                                        }}
-                                                        className="relative"
-                                                    >
-                                                        {/* Active background */}
-                                                        {isActive && (
-                                                            <motion.div
-                                                                layoutId="nav-active-bg"
-                                                                className="absolute inset-0 -z-10 rounded-lg bg-linear-to-r from-[#6B0F1A]/3 to-[#D4A76A]/2"
-                                                                transition={{ type: "spring", stiffness: 320, damping: 35 }}
-                                                            />
-                                                        )}
+                                            return (
+                                                <motion.div
+                                                    key={item.label}
+                                                    initial={false}
+                                                    animate={isActive ? "active" : "inactive"}
+                                                    variants={{
+                                                        active: {
+                                                            scale: 1,
+                                                            opacity: 1,
+                                                            transition: { duration: 0.15 }
+                                                        },
+                                                        inactive: {
+                                                            scale: 0.98,
+                                                            opacity: 0.95,
+                                                            transition: { duration: 0.1 }
+                                                        }
+                                                    }}
+                                                    className="relative"
+                                                >
+                                                    {/* Active background */}
+                                                    {isActive && (
+                                                        <motion.div
+                                                            layoutId="nav-active-bg"
+                                                            className="absolute inset-0 -z-10 rounded-lg bg-linear-to-r from-[#6B0F1A]/3 to-[#D4A76A]/2"
+                                                            transition={{ type: "spring", stiffness: 320, damping: 35 }}
+                                                        />
+                                                    )}
 
-                                                        {/* Subtle connection lines between items */}
-                                                        {index < navItems.length - 1 && (
-                                                            <div className="absolute right-0 top-1/2 h-2 w-px -translate-y-1/2 bg-linear-to-b from-transparent via-[#E7E2DE]/40 to-transparent" />
-                                                        )}
+                                                    {/* Subtle connection lines between items */}
+                                                    {index < navItems.length - 1 && (
+                                                        <div className="absolute right-0 top-1/2 h-2 w-px -translate-y-1/2 bg-linear-to-b from-transparent via-[#E7E2DE]/40 to-transparent" />
+                                                    )}
 
-                                                        <Link
-                                                            href={item.href}
-                                                            onClick={closeAll}
-                                                            className={`
+                                                    <Link
+                                                        href={item.href}
+                                                        onClick={closeAll}
+                                                        className={`
                                             relative flex items-center justify-center gap-1
                                             rounded-lg px-3 py-1.5
                                             text-[10px] font-medium uppercase tracking-[0.15em]
@@ -1793,10 +1757,9 @@ export default function Header() {
                                                                 : 'bg-linear-to-r from-[#6B0F1A]/2 via-transparent to-[#D4A76A]/2'
                                                             }
                                     `} />
-                                                    </motion.div>
-                                                );
-                                            })
-                                        )}
+                                                </motion.div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
@@ -1811,34 +1774,26 @@ export default function Header() {
                             <div className="relative w-[80%]">
                                 <div className="relative overflow-x-auto py-1 scrollbar-hide">
                                     <div className="flex items-center justify-center gap-1.5 min-w-max mx-auto px-2">
-                                        {isCategoriesLoading ? (
-                                            // Skeleton for mobile nav items
-                                            Array.from({ length: 4 }).map((_, index) => (
-                                                <div key={index} className="px-3 py-1.5">
-                                                    <NavItemSkeleton />
-                                                </div>
-                                            ))
-                                        ) : (
-                                            navItems.map((item) => {
-                                                const isCategoryActive = Boolean(
-                                                    item.categorySlug && activeCategorySlugs.includes(item.categorySlug)
-                                                );
-                                                const isActive = item.categorySlug
-                                                    ? isCategoryActive
-                                                    : isNavActive(item.href);
-                                                const isSale = item.label === "SALE" || item.isSale;
-                                                const isNew = item.label === "NEW ARRIVALS" || item.label === "New Arrivals";
+                                        {navItems.map((item) => {
+                                            const isCategoryActive = Boolean(
+                                                item.categorySlug && activeCategorySlugs.includes(item.categorySlug)
+                                            );
+                                            const isActive = item.categorySlug
+                                                ? isCategoryActive
+                                                : isNavActive(item.href);
+                                            const isSale = item.label === "SALE" || item.isSale;
+                                            const isNew = item.label === "NEW ARRIVALS" || item.label === "New Arrivals";
 
-                                                return (
-                                                    <motion.div
-                                                        key={item.label}
-                                                        whileTap={{ scale: 0.95 }}
-                                                        className="relative"
-                                                    >
-                                                        <Link
-                                                            href={item.href}
-                                                            onClick={closeAll}
-                                                            className={`
+                                            return (
+                                                <motion.div
+                                                    key={item.label}
+                                                    whileTap={{ scale: 0.95 }}
+                                                    className="relative"
+                                                >
+                                                    <Link
+                                                        href={item.href}
+                                                        onClick={closeAll}
+                                                        className={`
                                     relative flex items-center justify-center
                                     rounded-full px-3 py-1.5
                                     text-[9px] font-medium uppercase tracking-[0.12em]
@@ -1880,10 +1835,9 @@ export default function Header() {
                                                         {isSale && !isActive && (
                                                             <div className="absolute -top-0.5 -right-0.5 h-1 w-1 rounded-full bg-linear-to-r from-[#C41E3A] to-[#FF3366] ring-0.5 ring-white" />
                                                         )}
-                                                    </motion.div>
-                                                );
-                                            })
-                                        )}
+                                                </motion.div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
@@ -1928,7 +1882,6 @@ export default function Header() {
                 isOpen={mobileMenuOpen}
                 onClose={closeAll}
                 navItems={navItems}
-                isLoading={isCategoriesLoading}
             />
             <style jsx global>{`
                 .hide-scrollbar {
