@@ -621,12 +621,14 @@ const WishlistPanel = ({
                         <div className="mt-3 grid grid-cols-2 gap-2">
                             <Link
                                 href="/products"
+                                onClick={onClose}
                                 className="inline-flex h-9 items-center justify-center rounded-lg border border-[#E7E2DE] bg-transparent px-4 text-xs font-semibold uppercase tracking-[0.3em] text-[#1F1B18] transition-colors hover:border-[#C41E3A] hover:bg-[#F5EFE9]"
                             >
                                 Browse
                             </Link>
                             <Link
                                 href="/wishlist"
+                                onClick={onClose}
                                 className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#C41E3A] px-4 text-xs font-semibold uppercase tracking-[0.3em] text-white transition-colors hover:bg-[#8C7F78]"
                             >
                                 <Heart className="h-4 w-4" />
@@ -810,12 +812,14 @@ const CartPanel = ({
                             <div className="mt-3 grid grid-cols-2 gap-2">
                                 <Link
                                     href="/cart"
+                                    onClick={onClose}
                                     className="inline-flex h-9 items-center justify-center rounded-lg border border-[#E7E2DE] bg-transparent px-4 text-xs font-semibold uppercase tracking-[0.3em] text-[#1F1B18] transition-colors hover:border-[#C41E3A] hover:bg-[#F5EFE9]"
                                 >
                                     View Cart
                                 </Link>
                                 <Link
                                     href="/checkout"
+                                    onClick={onClose}
                                     className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#1F1B18] px-4 text-xs font-semibold uppercase tracking-[0.3em] text-white transition-colors hover:bg-[#2C2621]"
                                 >
                                     <CreditCard className="h-4 w-4" />

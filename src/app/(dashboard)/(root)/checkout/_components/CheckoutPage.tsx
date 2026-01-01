@@ -969,7 +969,7 @@ export default function CheckoutPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8">
           {/* LEFT */}
-          <div className="space-y-6">
+          <div className="space-y-6 order-2 lg:order-1">
             {/* SHIPPING ADDRESS */}
             <section className="border border-gray-200 bg-white shadow-sm">
               <div className="flex items-center gap-3 bg-[#3f3f3f] px-4 py-2 text-white">
@@ -1394,7 +1394,7 @@ export default function CheckoutPage() {
           </div>
 
           {/* RIGHT: ORDER REVIEW */}
-          <aside className="border border-gray-200 bg-white shadow-sm h-fit">
+          <aside className="border border-gray-200 bg-white shadow-sm h-fit order-1 lg:order-2">
             <div className="flex items-center gap-3 bg-[#3f3f3f] px-4 py-2 text-white">
               <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/60 text-xs font-bold">
                 4
@@ -1451,7 +1451,7 @@ export default function CheckoutPage() {
 
                         {itemMaintenanceUnits > 0 && (
                           <div className="text-[11px] text-gray-500 mt-1">
-                            Maintenance: {itemMaintenanceUnits} × {formatPriceBDT(1)} ={" "}
+                            Sadaka: {itemMaintenanceUnits} × {formatPriceBDT(1)} ={" "}
                             <span className="font-semibold">
                               {formatPriceBDT(itemMaintenanceFee)}
                             </span>
@@ -1465,7 +1465,7 @@ export default function CheckoutPage() {
                               ? "Free"
                               : formatPriceBDT(itemDeliveryDetail.charge)}
                             {itemDeliveryDetail.dataSource === "db" && (
-                              <span className="text-amber-600"> (DB)</span>
+                              <span className="text-amber-600"></span>
                             )}
                           </div>
                         )}
@@ -1497,7 +1497,7 @@ export default function CheckoutPage() {
                     {shouldUseDbDelivery &&
                       smallestDbCharge !== null &&
                       smallestDbCharge > 0 && (
-                        <span className="text-xs text-amber-600 ml-1">(DB)</span>
+                        <span className="text-xs text-amber-600 ml-1"></span>
                       )}
                   </span>
                 </div>

@@ -293,6 +293,7 @@ export default function ComboOfferDetail({
   const [showZoom, setShowZoom] = useState(false);
   const [showZoomPanel, setShowZoomPanel] = useState(false);
   const [isZoomActive, setIsZoomActive] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
   const [touchDistance, setTouchDistance] = useState(1);
   const [isPinching, setIsPinching] = useState(false);
@@ -517,6 +518,27 @@ export default function ComboOfferDetail({
     void fetchReviews();
   }, [tab, comboOffer.id, fetchReviews]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsMobile(media.matches);
+    update();
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    setShowZoom(false);
+    setShowZoomPanel(false);
+    setIsZoomActive(false);
+    setZoomScale(2);
+  }, [isMobile]);
+
   // Fetch related combo offers
   useEffect(() => {
     let isMounted = true;
@@ -662,6 +684,7 @@ export default function ComboOfferDetail({
   };
 
   const handleImageTap = () => {
+    if (isMobile) return;
     if (isZoomActive) {
       setShowZoomPanel(true);
       setIsZoomActive(true);
@@ -676,6 +699,7 @@ export default function ComboOfferDetail({
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isMobile) return;
     if (!imageRef.current) return;
 
     if (e.touches.length === 2) {
@@ -703,6 +727,7 @@ export default function ComboOfferDetail({
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isMobile) return;
     if (!isZoomActive || !imageRef.current || e.touches.length === 0) return;
 
     if (e.touches.length === 2 && isPinching) {
@@ -732,11 +757,13 @@ export default function ComboOfferDetail({
   };
 
   const handleTouchEnd = () => {
+    if (isMobile) return;
     setIsPinching(false);
     if (!isZoomActive) handleImageTap();
   };
 
   const toggleZoomPanel = () => {
+    if (isMobile) return;
     setShowZoomPanel((prev) => !prev);
     if (!showZoomPanel) setIsZoomActive(true);
   };
@@ -856,7 +883,7 @@ export default function ComboOfferDetail({
                 />
 
                 {/* Zoom Indicator */}
-                {isZoomActive && (
+                {!isMobile && isZoomActive && (
                   <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 bg-slate-900/75 text-white px-3 py-1.5 rounded-full text-xs lg:hidden">
                     <ZoomIn className="w-3 h-3" />
                     <span className="font-semibold">Zoom Active • Tap to adjust</span>
@@ -864,17 +891,19 @@ export default function ComboOfferDetail({
                 )}
 
                 {/* Zoom Toggle Button */}
-                <button
-                  onClick={toggleZoomPanel}
-                  className="absolute bottom-4 right-4 z-10 p-2 bg-white/90 backdrop-blur-sm rounded-xl ring-1 ring-slate-200 shadow-md hover:shadow-lg hover:bg-white transition-all lg:hidden active:scale-95"
-                  title={showZoomPanel ? "Hide Zoom" : "Show Zoom"}
-                >
-                  <ZoomIn
-                    className={`w-5 h-5 ${
-                      isZoomActive ? "text-orange-600" : "text-slate-700"
-                    }`}
-                  />
-                </button>
+                {!isMobile && (
+                  <button
+                    onClick={toggleZoomPanel}
+                    className="absolute bottom-4 right-4 z-10 p-2 bg-white/90 backdrop-blur-sm rounded-xl ring-1 ring-slate-200 shadow-md hover:shadow-lg hover:bg-white transition-all lg:hidden active:scale-95"
+                    title={showZoomPanel ? "Hide Zoom" : "Show Zoom"}
+                  >
+                    <ZoomIn
+                      className={`w-5 h-5 ${
+                        isZoomActive ? "text-orange-600" : "text-slate-700"
+                      }`}
+                    />
+                  </button>
+                )}
               </div>
 
               {/* Zoom Preview Overlay */}
@@ -937,7 +966,7 @@ export default function ComboOfferDetail({
             )}
 
             {/* Zoom Panel for Mobile */}
-            {showZoomPanel && (
+            {!isMobile && showZoomPanel && (
               <div className={`${softCard} mt-6 p-4 lg:hidden`}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -1004,7 +1033,7 @@ export default function ComboOfferDetail({
 
           {/* Details / Zoom Info */}
           <div className="relative">
-            {showZoom ? (
+            {showZoom && !isMobile ? (
               <div className={`${card} p-8 space-y-4 flex flex-col items-center justify-center min-h-75`}>
                 <div className="text-center max-w-sm">
                   <ZoomIn className="w-10 h-10 mx-auto text-orange-600 mb-3" />
@@ -1278,7 +1307,7 @@ export default function ComboOfferDetail({
                     <div className="flex items-center bg-white ring-1 ring-slate-200 rounded-none shadow-sm overflow-hidden">
                       <button
                         onClick={() => setQty((q) => Math.max(1, q - 1))}
-                        className="h-12 w-12 grid place-items-center hover:bg-slate-50 transition-all text-lg font-extrabold text-slate-600 hover:text-slate-900 active:scale-95"
+                        className="h-12 w-12 grid bg-[#6B0F1A] place-items-center hover:bg-slate-50 transition-all text-lg font-extrabold text-white hover:text-slate-900 active:scale-95"
                       >
                         −
                       </button>
@@ -1287,7 +1316,7 @@ export default function ComboOfferDetail({
                       </div>
                       <button
                         onClick={() => setQty((q) => Math.min(q + 1, maxQty))}
-                        className="h-12 w-12 grid place-items-center hover:bg-slate-50 transition-all text-lg font-extrabold text-slate-600 hover:text-slate-900 active:scale-95"
+                        className="h-12 w-12 bg-[#2F5D50] text-white grid place-items-center hover:bg-slate-50 transition-all text-lg font-extrabold hover:text-slate-900 active:scale-95"
                       >
                         +
                       </button>

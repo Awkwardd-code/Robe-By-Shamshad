@@ -345,6 +345,7 @@ function ProductDetailContent({ product }: { product: Product }) {
   const [showZoom, setShowZoom] = useState(false);
   const [showZoomPanel, setShowZoomPanel] = useState(false);
   const [isZoomActive, setIsZoomActive] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [touchStart, setTouchStart] = useState({ x: 0, y: 0 });
   const [touchDistance, setTouchDistance] = useState(1);
   const [isPinching, setIsPinching] = useState(false);
@@ -648,6 +649,27 @@ function ProductDetailContent({ product }: { product: Product }) {
     void fetchReviews();
   }, [tab, fetchReviews]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsMobile(media.matches);
+    update();
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    setShowZoom(false);
+    setShowZoomPanel(false);
+    setIsZoomActive(false);
+    setZoomScale(2);
+  }, [isMobile]);
+
   const updateZoomPosition = (clientX: number, clientY: number, rect: DOMRect) => {
     const x = ((clientX - rect.left) / rect.width) * 100;
     const y = ((clientY - rect.top) / rect.height) * 100;
@@ -670,6 +692,7 @@ function ProductDetailContent({ product }: { product: Product }) {
   };
 
   const handleImageTap = () => {
+    if (isMobile) return;
     if (isZoomActive) {
       setShowZoomPanel(true);
       setIsZoomActive(true);
@@ -684,6 +707,7 @@ function ProductDetailContent({ product }: { product: Product }) {
   };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isMobile) return;
     if (!imageRef.current) return;
 
     if (e.touches.length === 2) {
@@ -707,6 +731,7 @@ function ProductDetailContent({ product }: { product: Product }) {
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (isMobile) return;
     if (!isZoomActive || !imageRef.current || e.touches.length === 0) return;
 
     if (e.touches.length === 2 && isPinching) {
@@ -733,11 +758,13 @@ function ProductDetailContent({ product }: { product: Product }) {
   };
 
   const handleTouchEnd = () => {
+    if (isMobile) return;
     setIsPinching(false);
     if (!isZoomActive) handleImageTap();
   };
 
   const toggleZoomPanel = () => {
+    if (isMobile) return;
     setShowZoomPanel((prev) => !prev);
     if (!showZoomPanel) setIsZoomActive(true);
   };
@@ -849,7 +876,7 @@ function ProductDetailContent({ product }: { product: Product }) {
                   />
 
                   {/* Zoom Indicator */}
-                  {isZoomActive && (
+                  {!isMobile && isZoomActive && (
                     <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs lg:hidden"
                       style={{ backgroundColor: "rgba(59,42,34,0.75)", color: "white" }}
                     >
@@ -859,18 +886,20 @@ function ProductDetailContent({ product }: { product: Product }) {
                   )}
 
                   {/* Zoom Toggle Button */}
-                  <button
-                    onClick={toggleZoomPanel}
-                    className="absolute bottom-4 right-4 z-10 p-2 rounded-xl shadow-md transition-colors lg:hidden border"
-                    style={{
-                      backgroundColor: "rgba(255,255,255,0.85)",
-                      borderColor: robe.blush,
-                      color: isZoomActive ? robe.maroon : robe.text,
-                    }}
-                    title={showZoomPanel ? "Hide Zoom" : "Show Zoom"}
-                  >
-                    <ZoomIn className="w-5 h-5" />
-                  </button>
+                  {!isMobile && (
+                    <button
+                      onClick={toggleZoomPanel}
+                      className="absolute bottom-4 right-4 z-10 p-2 rounded-xl shadow-md transition-colors lg:hidden border"
+                      style={{
+                        backgroundColor: "rgba(255,255,255,0.85)",
+                        borderColor: robe.blush,
+                        color: isZoomActive ? robe.maroon : robe.text,
+                      }}
+                      title={showZoomPanel ? "Hide Zoom" : "Show Zoom"}
+                    >
+                      <ZoomIn className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
 
                 {/* Zoom Preview Overlay (desktop) */}
@@ -933,7 +962,7 @@ function ProductDetailContent({ product }: { product: Product }) {
               )}
 
               {/* Mobile zoom panel */}
-              {showZoomPanel && (
+              {!isMobile && showZoomPanel && (
                 <div className="mt-6 p-4 rounded-2xl border shadow-sm lg:hidden"
                   style={{
                     background: `linear-gradient(135deg, #ffffff, ${robe.cream})`,
@@ -1016,7 +1045,7 @@ function ProductDetailContent({ product }: { product: Product }) {
 
             {/* Product Details */}
             <div className="relative">
-              {showZoom ? (
+              {showZoom && !isMobile ? (
                 <div className="space-y-3 flex flex-col items-center justify-center min-h-75">
                   <div className="text-center max-w-sm">
                     <ZoomIn className="w-10 h-10 mx-auto mb-3" style={{ color: robe.maroon }} />
@@ -1296,8 +1325,8 @@ function ProductDetailContent({ product }: { product: Product }) {
                       >
                         <button
                           onClick={() => adjustQty(-1)}
-                          className="h-11 w-11 flex items-center justify-center text-lg font-semibold transition"
-                          style={{ color: robe.text }}
+                          className="h-11 w-11 flex bg-[#6B0F1A] items-center justify-center text-lg text-white font-semibold transition"
+                          // style={{ color: robe.text }}
                           type="button"
                         >
                           -
@@ -1312,8 +1341,8 @@ function ProductDetailContent({ product }: { product: Product }) {
 
                         <button
                           onClick={() => adjustQty(1)}
-                          className="h-11 w-11 flex items-center justify-center text-lg font-semibold transition"
-                          style={{ color: robe.text }}
+                          className="h-11 w-11 bg-[#2F5D50] flex items-center justify-center text-white text-lg font-semibold transition"
+                          // style={{ color: robe.text }}
                           type="button"
                         >
                           +
