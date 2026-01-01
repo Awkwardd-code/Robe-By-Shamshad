@@ -148,7 +148,7 @@ function buildRedirectResponse(
 }
 
 export async function GET(req: NextRequest) {
-  const origin = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+  const origin = process.env.VERCEL_URL || req.nextUrl.origin;
   const loginRedirect = `${origin}/login`;
 
   try {
