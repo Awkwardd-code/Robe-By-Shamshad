@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const origin = process.env.VERCEL_URL || req.nextUrl.origin;
+    const origin = process.env.NEXT_PUBLIC_API_URL || req.nextUrl.origin;
     const redirectUri = new URL("/api/auth/google/callback", origin).toString();
 
     const state = crypto.randomBytes(16).toString("hex");
