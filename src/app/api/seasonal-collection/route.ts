@@ -88,20 +88,8 @@ export async function POST(request: NextRequest) {
     const imageUrl = asString(body.image?.url);
     const imagePublicId = asString(body.image?.publicId);
 
-    if (!title) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
-    }
 
-    if (!description) {
-      return NextResponse.json(
-        { error: "Description is required" },
-        { status: 400 }
-      );
-    }
 
-    if (!offer) {
-      return NextResponse.json({ error: "Offer is required" }, { status: 400 });
-    }
 
     if (!imageUrl) {
       return NextResponse.json({ error: "Image is required" }, { status: 400 });

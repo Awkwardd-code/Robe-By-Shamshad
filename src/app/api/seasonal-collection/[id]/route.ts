@@ -72,20 +72,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const imageUrl = asString(body.image?.url);
     const imagePublicId = asString(body.image?.publicId);
 
-    if (!title) {
-      return NextResponse.json({ error: "Title is required" }, { status: 400 });
-    }
 
-    if (!description) {
-      return NextResponse.json(
-        { error: "Description is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!offer) {
-      return NextResponse.json({ error: "Offer is required" }, { status: 400 });
-    }
 
     const db = await connectToDatabase();
     const seasonalCollection = db.collection("seasonalCollections");

@@ -264,11 +264,6 @@ const SeasonalCollectionPage: React.FC = () => {
       image,
     };
 
-    if (!payload.title || !payload.description || !payload.offer) {
-      toast.error("Title, description, and offer are required.");
-      return;
-    }
-
     if (!payload.image?.url) {
       toast.error("Please upload a seasonal image.");
       return;

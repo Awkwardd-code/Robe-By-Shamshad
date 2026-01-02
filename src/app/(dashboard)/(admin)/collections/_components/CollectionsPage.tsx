@@ -168,6 +168,19 @@ const generateRandomString = (length = 8): string => {
   return result;
 };
 
+const createEmptyCollection = (): CollectionForm => ({
+  bannerImage: '',
+  bannerTitle: '',
+  bannerDescription: '',
+  slug: `robe_by_shamshad_collection_${generateRandomString(8)}`,
+  tags: '',
+  collections: [],
+  status: 'draft',
+  featured: false,
+  sortOrder: 0,
+  visibility: 'public'
+});
+
 // Custom hook for image upload functionality
 const useImageUpload = (initialImages: UploadedImage[] = []) => {
   const [images, setImages] = useState<UploadedImage[]>(initialImages);
@@ -621,18 +634,7 @@ const FashionCollectionsPage: React.FC = () => {
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [editingCollection, setEditingCollection] = useState<CollectionForm | null>(null);
   const [collectionToDelete, setCollectionToDelete] = useState<string | null>(null);
-  const [newCollection, setNewCollection] = useState<CollectionForm>({
-    bannerImage: '',
-    bannerTitle: '',
-    bannerDescription: '',
-    slug: '',
-    tags: '',
-    collections: [],
-    status: 'draft',
-    featured: false,
-    sortOrder: 0,
-    visibility: 'public'
-  });
+  const [newCollection, setNewCollection] = useState<CollectionForm>(createEmptyCollection());
 
   const [selectedItems, setSelectedItems] = useState<CollectionItem[]>([]);
   const [searchCatalog, setSearchCatalog] = useState('');
@@ -651,9 +653,12 @@ const FashionCollectionsPage: React.FC = () => {
 
   // Generate slug for fashion brand
   const generateSlug = (title: string): string => {
-    if (!title.trim()) return '';
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      return `robe_by_shamshad_collection_${generateRandomString(8)}`;
+    }
 
-    const baseSlug = title
+    const baseSlug = trimmedTitle
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -733,6 +738,14 @@ const FashionCollectionsPage: React.FC = () => {
   // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+  };
+
+  const handleOpenAddModal = () => {
+    setNewCollection(prev => ({
+      ...prev,
+      slug: prev.slug.trim() ? prev.slug : `robe_by_shamshad_collection_${generateRandomString(8)}`
+    }));
+    setIsAddModalOpen(true);
   };
 
   // Handle view collection details
@@ -891,18 +904,8 @@ const FashionCollectionsPage: React.FC = () => {
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!newCollection.bannerTitle) {
-      toast.error('Please provide a collection title');
-      return;
-    }
-
     if (newCollectionImageUpload.images.length === 0) {
       toast.error('Please upload a banner image for the fashion collection');
-      return;
-    }
-
-    if (selectedItems.length === 0) {
-      toast.error('Please add at least one fashion item to the collection');
       return;
     }
 
@@ -1021,18 +1024,7 @@ const FashionCollectionsPage: React.FC = () => {
 
   // Reset new collection form
   const resetNewCollection = () => {
-    setNewCollection({
-      bannerImage: '',
-      bannerTitle: '',
-      bannerDescription: '',
-      slug: '',
-      tags: '',
-      collections: [],
-      status: 'draft',
-      featured: false,
-      sortOrder: 0,
-      visibility: 'public'
-    });
+    setNewCollection(createEmptyCollection());
     setSelectedItems([]);
     newCollectionImageUpload.setImages([]);
     setSearchCatalog('');
@@ -1248,7 +1240,7 @@ const FashionCollectionsPage: React.FC = () => {
               Refresh
             </button>
             <button
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={handleOpenAddModal}
               className="inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-purple-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 cursor-pointer"
             >
               <Plus className="h-5 w-5" />
@@ -1408,7 +1400,7 @@ const FashionCollectionsPage: React.FC = () => {
                 {searchTerm ? 'Try a different search term' : 'Create your first fashion collection to get started'}
               </p>
               <button
-                onClick={() => setIsAddModalOpen(true)}
+                onClick={handleOpenAddModal}
                 className="inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-purple-500 to-pink-500 px-6 py-3 text-sm font-semibold text-white shadow-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-300 cursor-pointer"
               >
                 <Plus className="h-5 w-5" />
@@ -1716,19 +1708,21 @@ const FashionCollectionsPage: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                          Collection Title *
+                          Collection Title
                         </label>
                         <input
                           type="text"
                           value={newCollection.bannerTitle}
-                          onChange={(e) => setNewCollection({
-                            ...newCollection,
-                            bannerTitle: e.target.value,
-                            slug: generateSlug(e.target.value)
-                          })}
+                          onChange={(e) => {
+                            const nextTitle = e.target.value;
+                            setNewCollection({
+                              ...newCollection,
+                              bannerTitle: nextTitle,
+                              slug: nextTitle.trim() ? generateSlug(nextTitle) : newCollection.slug
+                            });
+                          }}
                           className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300"
                           placeholder="e.g., Eid Collection 2024, Summer Abaya Collection"
-                          required
                         />
                         
                         {/* Fashion Collection Type Suggestions */}
@@ -2107,19 +2101,21 @@ const FashionCollectionsPage: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                            Collection Title *
+                            Collection Title
                           </label>
                           <input
                             type="text"
                             value={editingCollection.bannerTitle}
-                            onChange={(e) => setEditingCollection({
-                              ...editingCollection,
-                              bannerTitle: e.target.value,
-                              slug: generateSlug(e.target.value)
-                            })}
+                            onChange={(e) => {
+                              const nextTitle = e.target.value;
+                              setEditingCollection({
+                                ...editingCollection,
+                                bannerTitle: nextTitle,
+                                slug: nextTitle.trim() ? generateSlug(nextTitle) : editingCollection.slug
+                              });
+                            }}
                             className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300"
                             placeholder="e.g., Eid Collection 2024, Summer Abaya Collection"
-                            required
                           />
                         </div>
                         <div>

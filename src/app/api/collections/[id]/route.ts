@@ -207,13 +207,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Validation
-    if (!bannerTitle?.trim()) {
-      return NextResponse.json(
-        { error: 'Collection title is required' },
-        { status: 400 }
-      );
-    }
+
 
     if (!Array.isArray(collectionItems) || collectionItems.length === 0) {
       return NextResponse.json(

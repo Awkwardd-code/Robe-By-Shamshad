@@ -226,12 +226,7 @@ export async function POST(request: Request) {
     } = body;
 
     // Validation
-    if (!bannerTitle?.trim()) {
-      return NextResponse.json(
-        { error: 'Collection title is required' },
-        { status: 400 }
-      );
-    }
+
 
     if (!bannerImage) {
       return NextResponse.json(
