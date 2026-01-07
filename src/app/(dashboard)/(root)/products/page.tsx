@@ -13,7 +13,7 @@ const page = () => {
 
 function ProductPageFallback() {
   return (
-    <div className="min-h-[400px] flex items-center justify-center">
+    <div className="min-h-100 flex items-center justify-center">
       <span className="text-gray-500 animate-pulse">Loading products…</span>
     </div>
   );

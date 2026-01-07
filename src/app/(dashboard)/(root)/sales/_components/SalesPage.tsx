@@ -899,7 +899,7 @@ export default function ComboOffersListingPage() {
                     {showInitialSkeletons ? (
                       <span className="inline-block h-3 w-24 bg-gray-200 animate-pulse align-middle" />
                     ) : (
-                      `${totalCount} combos`
+                      ""
                     )}
                     {!isLoading && activeFiltersCount > 0 ? ` ? ${activeFiltersCount} active` : ""}
                   </div>
@@ -1247,17 +1247,7 @@ function ComboCard({
               <Heart className={`w-5 h-5 ${isWishlisted ? "fill-red-500 text-red-500" : ""}`} />
             </button>
 
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              type="button"
-              className="w-9 h-9 flex items-center justify-center text-[#6B0F1A] hover:text-gray-700"
-              aria-label="Action"
-            >
-              <RefreshCcw className="w-5 h-5" />
-            </button>
+
           </div>
         </div>
 

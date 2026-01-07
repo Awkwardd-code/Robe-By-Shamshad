@@ -9,7 +9,6 @@ import {
     Heart,
     ShoppingCart,
     User,
-    Menu,
     X,
     ChevronRight,
     Package,
@@ -156,17 +155,6 @@ function useEscToClose(isOpen: boolean, onClose: () => void) {
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [isOpen, onClose]);
-}
-
-function useLockBodyScroll(locked: boolean) {
-    useEffect(() => {
-        if (!locked) return;
-        const prev = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        return () => {
-            document.body.style.overflow = prev;
-        };
-    }, [locked]);
 }
 
 function formatCurrency(amount: number) {
@@ -1159,97 +1147,12 @@ const ProfileDropdown = ({
     );
 };
 
-const MobileMenu = ({
-    isOpen,
-    onClose,
-    navItems,
-}: {
-    isOpen: boolean;
-    onClose: () => void;
-    navItems: NavItem[];
-}) => {
-    useEscToClose(isOpen, onClose);
-    useLockBodyScroll(isOpen);
-
-    return (
-        <AnimatePresence>
-            {isOpen && (
-                <>
-                    <motion.div
-                        variants={backdropVariants}
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        className="fixed inset-0 z-40 bg-black/50"
-                        onClick={onClose}
-                    />
-
-                    <motion.div
-                        variants={drawerVariants}
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        className="fixed right-0 top-0 z-50 h-full w-80 overflow-y-auto bg-white shadow-2xl"
-                    >
-                        <div className="p-6">
-                            <div className="mb-8 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <img
-                                        src={LOGO_SRC}
-                                        alt={BRAND_NAME}
-                                        className="h-10 w-10 object-contain"
-                                    />
-                                    <div className="text-sm leading-tight">
-                                        <div
-                                            className="font-extrabold tracking-[0.14em] text-[#1F1B18]"
-                                            style={{ fontFamily: FONTS.brand }}
-                                        >
-                                            {BRAND_NAME}
-                                        </div>
-
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={onClose}
-                                    className="rounded-full p-2 hover:bg-[#F5EFE9] transition-colors"
-                                    type="button"
-                                    aria-label="Close menu"
-                                >
-                                    <X className="h-5 w-5 text-[#8C7F78]" />
-                                </button>
-                            </div>
-
-                            <nav className="mb-8 space-y-1">
-                                {navItems.map((item) => (
-                                    <a
-                                        key={item.label}
-                                        href={item.href}
-                                        onClick={onClose}
-                                        className={`block border-b border-[#F5EFE9] py-3 font-medium transition ${item.highlight
-                                            ? "text-[#C41E3A] hover:text-[#D63B54]"
-                                            : "text-[#1F1B18] hover:text-[#6B0F1A]"
-                                            } last:border-b-0`}
-                                        style={{ fontFamily: FONTS.nav }}
-                                    >
-                                        {item.label}
-                                    </a>
-                                ))}
-                            </nav>
-                        </div>
-                    </motion.div>
-                </>
-            )}
-        </AnimatePresence>
-    );
-};
-
 /* ----------------------------- Main Header ----------------------------- */
 export default function Header() {
     const headerRef = useRef<HTMLElement | null>(null);
     const router = useRouter();
 
     const [activePanel, setActivePanel] = useState<string | null>(null);
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [panelTop, setPanelTop] = useState(88);
     const [scrolled, setScrolled] = useState(false);
@@ -1350,7 +1253,6 @@ export default function Header() {
 
     const togglePanel = (panel: string) => {
         setActivePanel((prev) => (prev === panel ? null : panel));
-        setMobileMenuOpen(false);
     };
 
     const handleProfileClick = async () => {
@@ -1368,7 +1270,6 @@ export default function Header() {
 
     const closeAll = () => {
         setActivePanel(null);
-        setMobileMenuOpen(false);
     };
 
     const handleLogout = async () => {
@@ -1394,9 +1295,6 @@ export default function Header() {
         if (href.startsWith("/products")) return pathname.startsWith("/products");
         return pathname === href;
     };
-
-
-    useLockBodyScroll(Boolean(activePanel) || mobileMenuOpen);
 
     return (
         <>
@@ -1611,17 +1509,6 @@ export default function Header() {
                                     )}
                                 </button>
                             </div>
-                            <button
-                                onClick={() => {
-                                    closeAll();
-                                    setMobileMenuOpen(true);
-                                }}
-                                className="cursor-pointer rounded-full p-2 hover:bg-linear-to-br hover:from-[#F6F3F1] hover:to-[#E7E2DE] md:hidden"
-                                aria-label="Open menu"
-                                type="button"
-                            >
-                                <Menu className="h-6 w-6 text-[#6B0F1A]" />
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -1877,12 +1764,6 @@ export default function Header() {
                 logoutLoading={isLoggingOut}
             />
 
-            {/* Mobile Drawer */}
-            <MobileMenu
-                isOpen={mobileMenuOpen}
-                onClose={closeAll}
-                navItems={navItems}
-            />
             <style jsx global>{`
                 .hide-scrollbar {
                 scrollbar-width: none;
