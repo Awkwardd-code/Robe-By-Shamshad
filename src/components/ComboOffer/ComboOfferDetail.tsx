@@ -357,7 +357,7 @@ export default function ComboOfferDetail({
     ? "Sold Out"
     : comboIsInCart
     ? "In Cart"
-    : "Add Combo to Cart";
+    : "Add ";
 
   const handleAddToCart = () => {
     if (comboButtonDisabled) return;

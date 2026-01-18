@@ -1252,17 +1252,17 @@ function ComboCard({
         </div>
 
         <div className="px-4 pb-5 pt-3 text-center">
-          <div className="text-[11px] font-semibold uppercase tracking-widest text-gray-500">
+         {/*  <div className="text-[11px] font-semibold uppercase tracking-widest text-gray-500">
             Combo bundle
-          </div>
+          </div> */}
 
           <div className="mt-2 text-xs text-gray-800 leading-snug line-clamp-2 min-h-8">
             {offer.name}
           </div>
 
-          <div className="mt-2 text-[11px] text-gray-500 line-clamp-2 min-h-7.5">
+          {/* <div className="mt-2 text-[11px] text-gray-500 line-clamp-2 min-h-7.5">
             {offer.description}
-          </div>
+          </div> */}
 
           <div className="mt-3 flex items-baseline justify-center gap-2">
             <span className="text-xs text-gray-400 line-through">{formatTk(offer.pricing.originalTotal)}</span>
@@ -1270,8 +1270,8 @@ function ComboCard({
           </div>
 
           <div className="mt-2 text-[11px] text-gray-600">
-            Save <span className="font-semibold">{formatTk(offer.savings || 0)}</span> •{" "}
-            <span className="font-semibold">{offer.inventory.soldCount}</span> sold
+            Save <span className="font-semibold">{formatTk(offer.savings || 0)}</span> {/* •{" "} */}
+            {/* <span className="font-semibold">{offer.inventory.soldCount}</span> sold */}
           </div>
         </div>
       </Link>
