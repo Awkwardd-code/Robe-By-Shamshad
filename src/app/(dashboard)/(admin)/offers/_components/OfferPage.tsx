@@ -1067,7 +1067,7 @@ const FashionComboPage: React.FC = () => {
         features: newCombo.features.split(',').map(feature => feature.trim()).filter(feature => feature),
         delivery: {
           ...newCombo.delivery,
-          message: newCombo.delivery.isFree ? 'Free Delivery on Fashion Orders' : `Delivery Charge: ${newCombo.delivery.charge} ${newCombo.pricing.currency}`
+          message: newCombo.delivery.isFree ? 'Free Delivery on Fashion Orders' : `Delivery Charge: ${formatMoney(newCombo.pricing.currency, newCombo.delivery.charge ?? 0)}`
         },
         ...mediaData
       };
@@ -1126,7 +1126,7 @@ const FashionComboPage: React.FC = () => {
         features: editingCombo.features.split(',').map(feature => feature.trim()).filter(feature => feature),
         delivery: {
           ...editingCombo.delivery,
-          message: editingCombo.delivery.isFree ? 'Free Delivery on Fashion Orders' : `Delivery Charge: ${editingCombo.delivery.charge} ${editingCombo.pricing.currency}`
+          message: editingCombo.delivery.isFree ? 'Free Delivery on Fashion Orders' : `Delivery Charge: ${formatMoney(editingCombo.pricing.currency, editingCombo.delivery.charge ?? 0)}`
         },
         ...mediaData
       };
@@ -1230,10 +1230,25 @@ const FashionComboPage: React.FC = () => {
     return combo.pricing.originalTotal - combo.pricing.discountedPrice;
   };
 
+  const formatPrice = (value: number) => {
+    if (!Number.isFinite(value)) return '0.00';
+    return value.toFixed(2);
+  };
+
+  const getCurrencySymbol = (currency: string) => {
+    if (currency === 'BDT') return '৳';
+    return currency;
+  };
+
+  const formatMoney = (currency: string, value: number) => {
+    const symbol = getCurrencySymbol(currency);
+    return symbol ? `${symbol} ${formatPrice(value)}` : formatPrice(value);
+  };
+
   // Filtered products by category
   const filteredProducts = useMemo(() => {
     if (selectedCategory === 'all') return products;
-    return products.filter(product => 
+    return products.filter(product =>
       product.category?.toLowerCase().includes(selectedCategory.toLowerCase()) ||
       product.name?.toLowerCase().includes(selectedCategory.toLowerCase())
     );
@@ -1339,7 +1354,7 @@ const FashionComboPage: React.FC = () => {
                       {product.name}
                     </h4>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {product.pricing.current.currency} {product.pricing.current.value}
+                      {formatMoney(product.pricing.current.currency, product.pricing.current.value)}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className={`px-2 py-1 rounded text-xs ${product.inventory.status === 'in_stock'
@@ -1609,26 +1624,47 @@ const FashionComboPage: React.FC = () => {
                         </div>
 
                         {/* Pricing */}
-                        <div className="mb-4">
-                          <div className="flex items-baseline gap-2 mb-1">
-                            <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                              {combo.pricing.currency} {combo.pricing.discountedPrice}
-                            </span>
-                            <span className="text-lg text-gray-500 dark:text-gray-400 line-through">
-                              {combo.pricing.currency} {combo.pricing.originalTotal}
-                            </span>
+                        <div className="mb-4 rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white/80 dark:bg-gray-900/40 p-4 shadow-sm">
+                          <div className="flex items-end justify-between gap-3">
+                            <div>
+                              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                                Combo Price
+                              </p>
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-md font-bold text-gray-900 dark:text-white">
+                                  {formatMoney(combo.pricing.currency, combo.pricing.discountedPrice)}
+                                </span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400 line-through">
+                                  {formatMoney(combo.pricing.currency, combo.pricing.originalTotal)}
+                                </span>
+                              </div>
+                            </div>
+
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs font-medium">
-                              <Zap className="h-3 w-3 mr-1" />
-                              Save {combo.pricing.currency} {savings}
+                          <div className="flex items-center gap-3 rounded-lg border border-green-200/70 dark:border-green-900/50 bg-green-50/70 dark:bg-green-950/30 px-3 py-2">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300">
+                              <Zap className="h-4 w-4" />
                             </span>
+                            <div className="flex flex-col">
+                              <span className="text-[11px] uppercase tracking-wide text-green-700/80 dark:text-green-300/80">
+                                You save
+                              </span>
+                              <span className="text-sm font-semibold text-green-900 dark:text-green-200">
+                                {formatMoney(combo.pricing.currency, savings)}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
                             {combo.delivery?.isFree && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs font-medium">
                                 <Truck className="h-3 w-3 mr-1" />
                                 Free Delivery
                               </span>
                             )}
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 text-xs font-medium">
+                              <Percent className="h-3 w-3 mr-1" />
+                              {combo.pricing.discountPercentage}% off
+                            </span>
                           </div>
                         </div>
 
@@ -1925,7 +1961,7 @@ const FashionComboPage: React.FC = () => {
                         placeholder="e.g., Complete Abaya Set, Hijab & Dress Combo, Modest Summer Collection"
                         required
                       />
-                      
+
                       {/* Fashion Combo Type Suggestions */}
                       <div className="mt-2">
                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Popular fashion combo types:</p>
@@ -2054,7 +2090,7 @@ const FashionComboPage: React.FC = () => {
                                     {product.name}
                                   </h4>
                                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    {product.pricing.current.currency} {product.pricing.current.value}
+                                    {formatMoney(product.pricing.current.currency, product.pricing.current.value)}
                                   </p>
                                   <div className="flex items-center gap-2 mt-1">
                                     <span className={`px-2 py-1 rounded text-xs ${product.inventory.status === 'in_stock'
@@ -2114,7 +2150,7 @@ const FashionComboPage: React.FC = () => {
                             Original Total
                           </label>
                           <div className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white">
-                            {newCombo.pricing.currency} {newCombo.pricing.originalTotal.toFixed(2)}
+                            {formatMoney(newCombo.pricing.currency, newCombo.pricing.originalTotal)}
                           </div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Sum of all selected fashion items
@@ -2174,7 +2210,7 @@ const FashionComboPage: React.FC = () => {
                                   ...newCombo.delivery,
                                   isFree: e.target.checked,
                                   charge: e.target.checked ? 0 : newCombo.delivery.charge,
-                                  message: e.target.checked ? 'Free Delivery' : `Delivery Charge: ${newCombo.delivery.charge} ${newCombo.pricing.currency}`
+                                  message: e.target.checked ? 'Free Delivery' : `Delivery Charge: ${formatMoney(newCombo.pricing.currency, newCombo.delivery.charge ?? 0)}`
                                 }
                               })}
                               className="h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-orange-500 focus:ring-orange-500 dark:focus:ring-orange-400 cursor-pointer"
@@ -2205,13 +2241,13 @@ const FashionComboPage: React.FC = () => {
                                   delivery: {
                                     ...newCombo.delivery,
                                     charge: parseFloat(e.target.value) || 0,
-                                    message: `Delivery Charge: ${parseFloat(e.target.value) || 0} ${newCombo.pricing.currency}`
+                                    message: `Delivery Charge: ${formatMoney(newCombo.pricing.currency, parseFloat(e.target.value) || 0)}`
                                   }
                                 })}
                                 className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:focus:ring-orange-400 transition-all duration-300 shadow-sm cursor-text"
                               />
                               <span className="text-sm text-gray-600 dark:text-gray-400">
-                                {newCombo.pricing.currency}
+                                {getCurrencySymbol(newCombo.pricing.currency)}
                               </span>
                             </div>
                           </div>
@@ -2505,7 +2541,7 @@ const FashionComboPage: React.FC = () => {
                               Original Total
                             </label>
                             <div className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white">
-                              {editingCombo.pricing.currency} {editingCombo.pricing.originalTotal.toFixed(2)}
+                              {formatMoney(editingCombo.pricing.currency, editingCombo.pricing.originalTotal)}
                             </div>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                               Sum of all selected fashion items
@@ -2562,7 +2598,7 @@ const FashionComboPage: React.FC = () => {
                                     ...editingCombo.delivery,
                                     isFree: e.target.checked,
                                     charge: e.target.checked ? 0 : editingCombo.delivery.charge,
-                                    message: e.target.checked ? 'Free Delivery' : `Delivery Charge: ${editingCombo.delivery.charge} ${editingCombo.pricing.currency}`
+                                    message: e.target.checked ? 'Free Delivery' : `Delivery Charge: ${formatMoney(editingCombo.pricing.currency, editingCombo.delivery.charge ?? 0)}`
                                   }
                                 })}
                                 className="h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-orange-500 focus:ring-orange-500 dark:focus:ring-orange-400 cursor-pointer"
@@ -2593,13 +2629,13 @@ const FashionComboPage: React.FC = () => {
                                     delivery: {
                                       ...editingCombo.delivery,
                                       charge: parseFloat(e.target.value) || 0,
-                                      message: `Delivery Charge: ${parseFloat(e.target.value) || 0} ${editingCombo.pricing.currency}`
+                                      message: `Delivery Charge: ${formatMoney(editingCombo.pricing.currency, parseFloat(e.target.value) || 0)}`
                                     }
                                   })}
                                   className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-orange-500 focus:border-transparent dark:focus:ring-orange-400 transition-all duration-300 shadow-sm cursor-text"
                                 />
                                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                                  {editingCombo.pricing.currency}
+                                  {getCurrencySymbol(editingCombo.pricing.currency)}
                                 </span>
                               </div>
                             </div>
@@ -2814,7 +2850,9 @@ const FashionComboPage: React.FC = () => {
                               : 'bg-gray-500/20 text-gray-800 dark:text-gray-200'
                               }`}>
                               <Truck className="h-3 w-3 mr-1" />
-                              {selectedCombo.delivery.isFree ? 'Free Delivery on Fashion Orders' : `Delivery Charge: ${selectedCombo.delivery.charge} ${selectedCombo.pricing.currency}`}
+                              {selectedCombo.delivery.isFree
+                                ? 'Free Delivery on Fashion Orders'
+                                : `Delivery Charge: ${formatMoney(selectedCombo.pricing.currency, selectedCombo.delivery.charge ?? 0)}`}
                             </div>
                           </div>
                         )}
@@ -2843,7 +2881,7 @@ const FashionComboPage: React.FC = () => {
                                   <span className="text-sm font-medium">{item.product?.name || 'Fashion Item'}</span>
                                 </div>
                                 <div className="text-sm text-gray-500 dark:text-gray-400">
-                                  {item.quantity} × {selectedCombo.pricing.currency} {item.product?.pricing.current.value || 0}
+                                  {item.quantity} × {formatMoney(selectedCombo.pricing.currency, item.product?.pricing.current.value ?? 0)}
                                 </div>
                               </div>
                             ))}
@@ -2851,15 +2889,15 @@ const FashionComboPage: React.FC = () => {
                         </div>
 
                         <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                          <div className="flex justify-between items-center">
-                            <span className="text-lg font-semibold">Total Price:</span>
-                            <div className="text-right">
+                          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+                            <div>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">Total Price</span>
                               <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                                {selectedCombo.pricing.currency} {selectedCombo.pricing.discountedPrice}
+                                {formatMoney(selectedCombo.pricing.currency, selectedCombo.pricing.discountedPrice)}
                               </div>
-                              <div className="text-sm text-gray-500 dark:text-gray-400 line-through">
-                                {selectedCombo.pricing.currency} {selectedCombo.pricing.originalTotal}
-                              </div>
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400 line-through">
+                              {formatMoney(selectedCombo.pricing.currency, selectedCombo.pricing.originalTotal)}
                             </div>
                           </div>
                         </div>
