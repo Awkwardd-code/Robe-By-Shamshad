@@ -168,7 +168,7 @@ function CategoryTile({
             {category.name}
           </div>
           <div className="mt-0.5 text-[8px] uppercase tracking-[0.45em] text-black/70">
-            {String(category.productCount).padStart(2, "0")} ITEMS
+            {/* {String(category.productCount).padStart(2, "0")} ITEMS */}
           </div>
         </div>
 
@@ -202,7 +202,7 @@ function CategoryTile({
                 </div>
               ) : (
                 <div className="mt-2 text-xs sm:text-sm text-white/90">
-                  {category.productCount} products available
+                  {/* {category.productCount} products available */}
                 </div>
               )}
 
