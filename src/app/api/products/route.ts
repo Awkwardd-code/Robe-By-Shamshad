@@ -330,11 +330,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const resolvedSku = ensureSlugWithCode(name, sku);
+    const resolvedSlug = ensureSlugWithCode(name, slug || resolvedSku);
+
     // Auto-generate SKU if not provided
-    const finalSku = sku?.trim() || generateSlug(name);
+    const finalSku = resolvedSku;
     
     // Ensure slug is set (allow overriding from request)
-    const finalSlug = slug?.trim() || generateSlug(name);
+    const finalSlug = resolvedSlug;
 
     // Auto-generate barcode if not provided
     const finalBarcode = barcode?.trim() || `RBS${Date.now().toString().slice(-8)}`;
@@ -427,11 +430,44 @@ export async function POST(request: Request) {
 }
 
 // Helper functions
-function generateSlug(name: string): string {
+const SLUG_CODE_LENGTH = 10;
+const SLUG_CODE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+function generateRandomCode(length: number = SLUG_CODE_LENGTH): string {
+  let randomString = '';
+  for (let i = 0; i < length; i++) {
+    randomString += SLUG_CODE_CHARS.charAt(Math.floor(Math.random() * SLUG_CODE_CHARS.length));
+  }
+  return randomString;
+}
+
+function slugifyName(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
+}
+
+function extractSlugCode(value: string): string | null {
+  const match = value.trim().toLowerCase().match(new RegExp(`-([a-z0-9]{${SLUG_CODE_LENGTH}})$`));
+  return match?.[1] ?? null;
+}
+
+function buildSlugWithCode(name: string, existingValue?: string): string {
+  const base = slugifyName(name) || 'robe-by-shamshad';
+  const existingCode = existingValue ? extractSlugCode(existingValue) : null;
+  const code = existingCode ?? generateRandomCode();
+  return `${base}-${code}`;
+}
+
+function ensureSlugWithCode(name: string, value?: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) return buildSlugWithCode(name);
+  if (extractSlugCode(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  const base = slugifyName(trimmed) || slugifyName(name) || 'robe-by-shamshad';
+  return `${base}-${generateRandomCode()}`;
 }
 
 function calculateDiscountPercentage(original: number, current: number): number {

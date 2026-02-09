@@ -255,8 +255,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const genderValue = normalizeGender(gender?.trim() || existingProduct.gender);
 
-    const resolvedSlug =
-      slug?.trim() || existingProduct.slug || generateSlug(name);
+    const resolvedSku = ensureSlugWithCode(name, sku ?? existingProduct.sku);
+    const resolvedSlug = ensureSlugWithCode(name, slug ?? existingProduct.slug ?? resolvedSku);
 
     // Process delivery information
     const deliveryCharge = safeNumber(delivery?.charge);
@@ -275,7 +275,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       category: category.trim(),
       subcategory: subcategory?.trim() || '',
       gender: genderValue,
-      sku: sku?.trim() || existingProduct.sku,
+      sku: resolvedSku,
       barcode: barcode?.trim() || existingProduct.barcode,
       description: description?.trim() || '',
       summary: summary?.trim() || '',
@@ -439,11 +439,44 @@ function normalizeGender(value?: string): 'men' | 'women' | 'unisex' {
   return 'unisex';
 }
 
-function generateSlug(name: string): string {
+const SLUG_CODE_LENGTH = 10;
+const SLUG_CODE_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+function generateRandomCode(length: number = SLUG_CODE_LENGTH): string {
+  let randomString = '';
+  for (let i = 0; i < length; i++) {
+    randomString += SLUG_CODE_CHARS.charAt(Math.floor(Math.random() * SLUG_CODE_CHARS.length));
+  }
+  return randomString;
+}
+
+function slugifyName(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
+}
+
+function extractSlugCode(value: string): string | null {
+  const match = value.trim().toLowerCase().match(new RegExp(`-([a-z0-9]{${SLUG_CODE_LENGTH}})$`));
+  return match?.[1] ?? null;
+}
+
+function buildSlugWithCode(name: string, existingValue?: string): string {
+  const base = slugifyName(name) || 'robe-by-shamshad';
+  const existingCode = existingValue ? extractSlugCode(existingValue) : null;
+  const code = existingCode ?? generateRandomCode();
+  return `${base}-${code}`;
+}
+
+function ensureSlugWithCode(name: string, value?: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) return buildSlugWithCode(name);
+  if (extractSlugCode(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  const base = slugifyName(trimmed) || slugifyName(name) || 'robe-by-shamshad';
+  return `${base}-${generateRandomCode()}`;
 }
 
 function formatDeliveryMessage(isFree: boolean, charge: number, currency: string): string {
