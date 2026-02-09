@@ -534,6 +534,7 @@ function ProductDetailContent({ product }: { product: Product }) {
           interface ApiProduct {
             _id: string;
             name: string;
+            slug?: string;
             brand?: string;
             category: string;
             subcategory?: string;
@@ -580,7 +581,7 @@ function ProductDetailContent({ product }: { product: Product }) {
               return {
                 id: p._id,
                 name: p.name,
-                slug: p.sku || p.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+                slug: p.slug?.trim() || "",
                 image: p.media?.thumbnail || "/images/placeholder.jpg",
                 imageAlt: `${p.name} image`,
                 gallery: p.media?.gallery?.map((src) => ({ src, alt: `${p.name} image` })) || [],
@@ -619,7 +620,9 @@ function ProductDetailContent({ product }: { product: Product }) {
               };
             }) || [];
 
-          const filtered = transformedProducts.filter((p) => p.id !== product.id).slice(0, 4);
+          const filtered = transformedProducts
+            .filter((p) => p.id !== product.id && p.slug)
+            .slice(0, 4);
           if (isMounted) setRelatedProducts(filtered);
         }
       } catch (error) {
