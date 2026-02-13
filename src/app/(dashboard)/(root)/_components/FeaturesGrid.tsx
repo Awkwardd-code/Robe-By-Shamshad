@@ -85,6 +85,20 @@ export default function FeaturesGrid() {
     return [...features].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   }, [features]);
 
+  const gridStyle = useMemo(() => {
+    const count = orderedFeatures.length;
+    if (count === 1) {
+      return { gridTemplateColumns: "minmax(0, 100%)" };
+    }
+    if (count === 2) {
+      return { gridTemplateColumns: "repeat(2, minmax(0, 50%))" };
+    }
+    if (count === 3) {
+      return { gridTemplateColumns: "repeat(3, minmax(0, 30%))" };
+    }
+    return undefined;
+  }, [orderedFeatures.length]);
+
   const FeatureItem = (f: Feature) => {
     const isLeft = f.align === "left";
     const imageToneClass = f.iconTone === "muted" ? "grayscale opacity-70" : "";
@@ -131,7 +145,12 @@ export default function FeaturesGrid() {
     <section className="w-full" style={{ backgroundColor: TOKENS.bg }}>
       <div className="mx-auto max-w-6xl px-6 py-14">
         {/* Matches screenshot: 4 columns x 2 rows (8 items) */}
-        <div className="grid grid-cols-2 gap-x-14 gap-y-16 md:grid-cols-4">
+        <div
+          className={`grid gap-x-14 gap-y-16 ${
+            orderedFeatures.length >= 4 ? "grid-cols-2 md:grid-cols-4" : "justify-center"
+          }`}
+          style={gridStyle}
+        >
           {orderedFeatures.map((f) => {
             const content = FeatureItem(f);
 

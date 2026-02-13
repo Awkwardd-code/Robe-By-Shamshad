@@ -552,6 +552,10 @@ export default function ComboOfferDetail({
 
           const transformedCombos: ComboOffer[] =
             data.offers?.map((combo: any) => {
+              const resolvedSlug =
+                typeof combo.slug === "string" && combo.slug.trim()
+                  ? combo.slug.trim()
+                  : combo._id;
               const uiGallery =
                 Array.isArray(combo.gallery) && combo.gallery.length > 0
                   ? combo.gallery.map((src: string) => ({
@@ -574,7 +578,7 @@ export default function ComboOfferDetail({
                 _id: combo._id,
                 name: combo.name,
                 description: combo.description,
-                slug: combo.slug,
+                slug: resolvedSlug,
                 thumbnail: getImagePath(combo.thumbnail),
                 gallery: uiGallery,
                 pricing: combo.pricing,

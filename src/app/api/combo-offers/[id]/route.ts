@@ -175,10 +175,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const normalizedSlug = ensureSlugSuffix(
+      slug?.trim() || existingCombo.slug || generateSlug(name.trim()),
+      existingCombo.slug
+    );
+
     // Check if slug is unique (excluding current combo)
-    if (slug?.trim() && slug.trim() !== existingCombo.slug) {
+    if (normalizedSlug && normalizedSlug !== existingCombo.slug) {
       const duplicateSlug = await comboOffersCollection.findOne({
-        slug: slug.trim(),
+        slug: normalizedSlug,
         _id: { $ne: new ObjectId(id) }
       });
 
@@ -248,7 +253,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const updateData = {
       name: name.trim(),
       description: description?.trim() || '',
-      slug: slug?.trim() || generateSlug(name.trim()),
+      slug: normalizedSlug,
       products: products.map(p => ({
         productId: new ObjectId(p.productId),
         quantity: Math.max(1, parseInt(p.quantity) || 1)
@@ -418,6 +423,31 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 // Helper functions
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function generateRandomString(length = 10): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+function resolveSlugSuffix(existingSlug?: string) {
+  if (!existingSlug) return generateRandomString(10);
+  const match = existingSlug.match(/(?:-|_)([a-z0-9]{10})$/);
+  return match ? match[1] : generateRandomString(10);
+}
+
+function ensureSlugSuffix(value: string, existingSlug?: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  if (/(?:-|_)[a-z0-9]{10}$/.test(trimmed)) return trimmed;
+  const separator = trimmed.includes("_") && !trimmed.includes("-") ? "_" : "-";
+  const suffix = resolveSlugSuffix(existingSlug);
+  const base = trimmed.replace(/[-_]+$/, "");
+  return `${base}${separator}${suffix}`;
 }
 
 function generateSlug(name: string): string {

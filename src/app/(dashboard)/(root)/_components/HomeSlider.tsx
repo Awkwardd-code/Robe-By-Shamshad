@@ -434,7 +434,7 @@ export default function ModernElegantSlider_EidBannerFrame() {
             </div>
 
             {/* Brand bottom-left (script) */}
-            <div className="absolute bottom-6 left-6 md:bottom-8 md:left-8">
+            {/* <div className="absolute bottom-6 left-6 md:bottom-8 md:left-8">
               {active.brandImage ? (
                 <Image
                   src={active.brandImage}
@@ -450,7 +450,7 @@ export default function ModernElegantSlider_EidBannerFrame() {
                   {active.brandText ?? "Brand"}
                 </div>
               )}
-            </div>
+            </div> */}
           </motion.div>
         </AnimatePresence>
 

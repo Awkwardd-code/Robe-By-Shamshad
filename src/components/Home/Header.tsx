@@ -87,8 +87,8 @@ const NavItemSkeleton = () => (
 );
 
 const ProfileQuickStatsSkeleton = () => (
-    <div className="grid grid-cols-3 gap-2">
-        {[1, 2, 3].map((i) => (
+    <div className="grid grid-cols-2 gap-2">
+        {[1, 2].map((i) => (
             <div key={i} className="rounded-lg border border-[#E7E2DE] bg-[#F5EFE9] px-3 py-2">
                 <Skeleton className="h-2.5 w-8 mb-1.5" />
                 <Skeleton className="h-3.5 w-6" />
@@ -846,6 +846,8 @@ const ProfileDropdown = ({
     onClose,
     onLogout,
     topOffset,
+    onOpenWishlist,
+    onOpenCart,
     loading = false,
     logoutLoading = false,
 }: {
@@ -854,82 +856,13 @@ const ProfileDropdown = ({
     onClose: () => void;
     onLogout: () => void;
     topOffset: number;
+    onOpenWishlist: () => void;
+    onOpenCart: () => void;
     loading?: boolean;
     logoutLoading?: boolean;
 }) => {
     useEscToClose(isOpen, onClose);
     const { cartItems, wishlistItems } = useCommerce();
-    const [orderCount, setOrderCount] = useState<number | null>(null);
-    const [isOrdersLoading, setIsOrdersLoading] = useState(false);
-
-    useEffect(() => {
-        const userId = user?.id;
-        if (!isOpen || !userId) return;
-        let isActive = true;
-        const controller = new AbortController();
-
-        const resolveOrderCount = async () => {
-            setIsOrdersLoading(true);
-            setOrderCount(null);
-            try {
-                let page = 1;
-                let totalPages = 1;
-                let matchedCount = 0;
-
-                while (page <= totalPages) {
-                    const response = await fetch(`/api/orders?page=${page}&limit=50`, {
-                        cache: "no-store",
-                        signal: controller.signal,
-                    });
-
-                    if (!response.ok) {
-                        throw new Error("Failed to load orders");
-                    }
-
-                    const data = await response.json();
-                    const orders = Array.isArray(data?.orders) ? data.orders : [];
-
-                    matchedCount += orders.reduce((acc: number, order: unknown) => {
-                        if (!order || typeof order !== "object") return acc;
-                        const record = order as { userId?: unknown };
-                        const rawUserId = record.userId;
-                        if (typeof rawUserId === "string") {
-                            return rawUserId === userId ? acc + 1 : acc;
-                        }
-                        if (rawUserId && typeof rawUserId === "object") {
-                            const oid = rawUserId as { $oid?: unknown; toString?: () => string };
-                            if (typeof oid.$oid === "string") {
-                                return oid.$oid === userId ? acc + 1 : acc;
-                            }
-                            if (typeof oid.toString === "function") {
-                                return oid.toString() === userId ? acc + 1 : acc;
-                            }
-                        }
-                        return acc;
-                    }, 0);
-
-                    totalPages = typeof data?.totalPages === "number" ? data.totalPages : page;
-                    page += 1;
-                }
-
-                if (isActive) setOrderCount(matchedCount);
-            } catch (error) {
-                if ((error as Error).name !== "AbortError") {
-                    console.error("Failed to load order count", error);
-                }
-                if (isActive) setOrderCount(0);
-            } finally {
-                if (isActive) setIsOrdersLoading(false);
-            }
-        };
-
-        void resolveOrderCount();
-
-        return () => {
-            isActive = false;
-            controller.abort();
-        };
-    }, [isOpen, user?.id]);
 
     if (!user && !loading) {
         return null;
@@ -942,12 +875,10 @@ const ProfileDropdown = ({
 
     const cartCount = cartItems.reduce((sum, entry) => sum + entry.quantity, 0);
     const wishlistCount = wishlistItems.length;
-    const ordersValue = orderCount === null || isOrdersLoading ? "..." : `${orderCount}`;
 
     const quickStats = [
-        { label: "Orders", value: ordersValue },
-        { label: "Wishlist", value: `${wishlistCount}` },
-        { label: "Cart", value: `${cartCount}` }
+        { label: "Wishlist", value: `${wishlistCount}`, onClick: onOpenWishlist },
+        { label: "Cart", value: `${cartCount}`, onClick: onOpenCart },
     ];
 
     const menuItems = [
@@ -1052,11 +983,13 @@ const ProfileDropdown = ({
                                             </button>
                                         </div>
 
-                                        <div className="mt-4 grid grid-cols-3 gap-2">
+                                        <div className="mt-4 grid grid-cols-2 gap-2">
                                             {quickStats.map((s) => (
-                                                <div
+                                                <button
                                                     key={s.label}
-                                                    className="rounded-lg border border-[#E7E2DE] bg-[#F5EFE9] px-3 py-2"
+                                                    type="button"
+                                                    onClick={s.onClick}
+                                                    className="rounded-lg border border-[#E7E2DE] bg-[#F5EFE9] px-3 py-2 text-left transition hover:bg-[#E7E2DE]"
                                                 >
                                                     <p className="text-[11px] font-semibold text-[#8C7F78]">
                                                         {s.label}
@@ -1064,13 +997,13 @@ const ProfileDropdown = ({
                                                     <p className="mt-0.5 text-sm font-extrabold text-[#1F1B18]">
                                                         {s.value}
                                                     </p>
-                                                </div>
+                                                </button>
                                             ))}
                                         </div>
                                     </>
                                 )}
 
-                                <div className="mt-4 grid grid-cols-2 gap-2">
+                                <div className="mt-4 grid grid-cols-1 gap-2">
                                     <Button
                                         variant="primary"
                                         size="sm"
@@ -1079,15 +1012,6 @@ const ProfileDropdown = ({
                                         loading={loading}
                                     >
                                         Rewards
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        type="button"
-                                        leftIcon={Package}
-                                        loading={loading}
-                                    >
-                                        Orders
                                     </Button>
                                 </div>
                             </div>
@@ -1346,7 +1270,7 @@ export default function Header() {
                             >
                                 {/* Curvy background effect */}
                                 <svg
-                                    className="absolute -top-2 -left-3 -right-3 -bottom-2 text-[#F5EFE9] opacity-60"
+                                    className="absolute -top-1 -left-2 -right-2 -bottom-1 text-[#F5EFE9] opacity-60"
                                     viewBox="0 0 200 40"
                                     xmlns="http://www.w3.org/2000/svg"
                                 >
@@ -1369,7 +1293,7 @@ export default function Header() {
                                 {/* Main brand name with curvy effect */}
                                 <div className="relative">
                                     <h1
-                                        className="text-center text-[14px] font-black leading-tight"
+                                        className="text-center text-[12px] font-black leading-tight"
                                         style={{
                                             fontFamily: FONTS.brand,
                                             textShadow: '0.5px 0.5px 1px rgba(31, 27, 24, 0.1)'
@@ -1410,17 +1334,17 @@ export default function Header() {
 
                                     {/* Curvy underline */}
                                     <svg
-                                        className="mx-auto mt-1"
-                                        width="80"
-                                        height="8"
-                                        viewBox="0 0 80 8"
+                                        className="mx-auto mt-0.5"
+                                        width="70"
+                                        height="6"
+                                        viewBox="0 0 70 6"
                                         fill="none"
                                         xmlns="http://www.w3.org/2000/svg"
                                     >
                                         <path
-                                            d="M0,4 C20,0 60,0 80,4"
+                                            d="M0,3 C18,0 52,0 70,3"
                                             stroke="url(#curve-gradient)"
-                                            strokeWidth="0.8"
+                                            strokeWidth="0.7"
                                             strokeLinecap="round"
                                             fill="none"
                                         />
@@ -1435,7 +1359,7 @@ export default function Header() {
                                 </div>
 
                                 {/* Subtle subtitle */}
-                                <p className="text-center text-[8px] font-medium tracking-[0.3em] text-[#8C7F78] mt-1 uppercase">
+                                <p className="text-center text-[7px] font-medium tracking-[0.3em] text-[#8C7F78] mt-0.5 uppercase">
                                     Premium Fashion
                                 </p>
                             </motion.div>
@@ -1760,6 +1684,8 @@ export default function Header() {
                 onClose={closeAll}
                 onLogout={handleLogout}
                 topOffset={profilePanelTop}
+                onOpenWishlist={() => setActivePanel("wishlist")}
+                onOpenCart={() => setActivePanel("cart")}
                 loading={authLoading}
                 logoutLoading={isLoggingOut}
             />

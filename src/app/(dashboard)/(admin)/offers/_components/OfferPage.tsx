@@ -160,8 +160,8 @@ const fashionCategories = [
   'Prayer Outfits'
 ];
 
-// Generate random 8-digit alphanumeric string
-const generateRandomString = (length = 8): string => {
+// Generate random alphanumeric string
+const generateRandomString = (length = 10): string => {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
   for (let i = 0; i < length; i++) {
@@ -678,8 +678,22 @@ const FashionComboPage: React.FC = () => {
   const newComboImageUpload = useImageUpload([]);
   const updateComboImageUpload = useImageUpload([]);
 
+  const resolveSlugSuffix = (existingSlug?: string) => {
+    if (!existingSlug) return generateRandomString(10);
+    const match = existingSlug.match(/_([a-z0-9]{10})$/);
+    return match ? match[1] : generateRandomString(10);
+  };
+
+  const ensureSlugSuffix = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return trimmed;
+    if (/_([a-z0-9]{10})$/.test(trimmed)) return trimmed;
+    const base = trimmed.replace(/_+$/, '');
+    return `${base}_${generateRandomString(10)}`;
+  };
+
   // Generate slug for fashion brand
-  const generateSlug = (name: string): string => {
+  const generateSlug = (name: string, existingSlug?: string): string => {
     if (!name.trim()) return '';
 
     const baseSlug = name
@@ -690,11 +704,13 @@ const FashionComboPage: React.FC = () => {
       .replace(/(^_|_$)/g, '')
       .replace(/_+/g, '_');
 
+    const suffix = resolveSlugSuffix(existingSlug);
+
     if (!baseSlug) {
-      return `robe_by_shamshad_combo_${generateRandomString(8)}`;
+      return `robe_by_shamshad_combo_${suffix}`;
     }
 
-    return `robe_by_shamshad_${baseSlug}`;
+    return `robe_by_shamshad_${baseSlug}_${suffix}`;
   };
 
   // Calculate original total from selected products
@@ -1062,7 +1078,7 @@ const FashionComboPage: React.FC = () => {
       const mediaData = prepareMediaData(newComboImageUpload.images);
       const comboData = {
         ...newCombo,
-        slug: newCombo.slug || generateSlug(newCombo.name),
+        slug: ensureSlugSuffix(newCombo.slug || generateSlug(newCombo.name, newCombo.slug)),
         tags: newCombo.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
         features: newCombo.features.split(',').map(feature => feature.trim()).filter(feature => feature),
         delivery: {
@@ -1955,7 +1971,7 @@ const FashionComboPage: React.FC = () => {
                         onChange={(e) => setNewCombo({
                           ...newCombo,
                           name: e.target.value,
-                          slug: generateSlug(e.target.value)
+                          slug: generateSlug(e.target.value, newCombo.slug)
                         })}
                         className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300 shadow-sm cursor-text"
                         placeholder="e.g., Complete Abaya Set, Hijab & Dress Combo, Modest Summer Collection"
@@ -1973,7 +1989,7 @@ const FashionComboPage: React.FC = () => {
                               onClick={() => setNewCombo({
                                 ...newCombo,
                                 name: type,
-                                slug: generateSlug(type)
+                                slug: generateSlug(type, newCombo.slug)
                               })}
                               className="px-3 py-1.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors cursor-pointer"
                             >
@@ -2493,7 +2509,7 @@ const FashionComboPage: React.FC = () => {
                             onChange={(e) => setEditingCombo({
                               ...editingCombo,
                               name: e.target.value,
-                              slug: generateSlug(e.target.value)
+                              slug: generateSlug(e.target.value, editingCombo.slug)
                             })}
                             className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 py-3 px-4 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:focus:ring-purple-400 transition-all duration-300 shadow-sm cursor-text"
                             placeholder="e.g., Complete Abaya Set, Hijab & Dress Combo"

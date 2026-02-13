@@ -229,8 +229,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if slug already exists
-    const generatedSlug = slug?.trim() || generateSlug(name.trim());
+    const generatedSlug = ensureSlugSuffix(slug?.trim() || generateSlug(name.trim()));
     
     const existingSlug = await comboOffersCollection.findOne({
       slug: generatedSlug
@@ -403,6 +402,31 @@ export async function POST(request: Request) {
 // Helper functions
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function generateRandomString(length = 10): string {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+function resolveSlugSuffix(existingSlug?: string) {
+  if (!existingSlug) return generateRandomString(10);
+  const match = existingSlug.match(/(?:-|_)([a-z0-9]{10})$/);
+  return match ? match[1] : generateRandomString(10);
+}
+
+function ensureSlugSuffix(value: string, existingSlug?: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  if (/(?:-|_)[a-z0-9]{10}$/.test(trimmed)) return trimmed;
+  const separator = trimmed.includes("_") && !trimmed.includes("-") ? "_" : "-";
+  const suffix = resolveSlugSuffix(existingSlug);
+  const base = trimmed.replace(/[-_]+$/, "");
+  return `${base}${separator}${suffix}`;
 }
 
 function generateSlug(name: string): string {

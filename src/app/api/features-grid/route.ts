@@ -9,7 +9,7 @@ type FeatureIconTone = "primary" | "muted";
 
 interface FeatureRecord {
   _id?: ObjectId;
-  title: string;
+  title?: string;
   description: string;
   imageUrl: string;
   imagePublicId: string;

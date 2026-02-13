@@ -93,7 +93,7 @@ export default function Footer() {
       <div className="container mx-auto px-4 py-12">
         {/* Main Footer Content */}
         <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10 lg:gap-0 lg:justify-between"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -147,48 +147,6 @@ export default function Footer() {
             </ul>
           </motion.div>
 
-          {/* POPULAR BRANDS Column */}
-          <motion.div variants={itemVariants}>
-            <h3 className="text-lg font-bold mb-4 pb-2 border-b border-[#A9A9A9] text-[#FFFFFF]">POPULAR BRANDS</h3>
-            <ul className="space-y-3">
-              <motion.li
-                whileHover={{ scale: 1.02 }}
-                transition={{ type: "spring" as const, stiffness: 300 }}
-              >
-                <span className="text-[#FFFFFF] font-semibold">Bites</span>
-                <ul className="ml-4 mt-2 space-y-2">
-                  {["Robe By ShamShad",].map((brand, index) => (
-                    <motion.li
-                      key={brand}
-                      initial={{ opacity: 0, x: -10 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      viewport={{ once: true }}
-                    >
-                      <motion.a
-                        href={`/`}
-                    className={`${mutedTextColor} hover:text-[#FFFFFF] transition-colors text-sm flex items-center gap-2 group`}
-                        whileHover={{ x: 3 }}
-                      >
-                        <motion.span 
-                          className="w-1.5 h-1.5 bg-[#FFFFFF] rounded-full"
-                          variants={iconVariants}
-                        />
-                        {brand}
-                        <motion.span
-                          className="opacity-0 group-hover:opacity-100"
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                        >
-                          •
-                        </motion.span>
-                      </motion.a>
-                    </motion.li>
-                  ))}
-                </ul>
-              </motion.li>
-            </ul>
-          </motion.div>
 
           {/* CUSTOMER SERVICE Column */}
           <motion.div variants={itemVariants}>
@@ -196,13 +154,11 @@ export default function Footer() {
             <ul className="space-y-3">
               {[
                 { label: "Sales", indent: false },
-               /*  { label: "FAQs", indent: false },
-                { label: "MyStats", indent: true },
-                { label: "Bites Stories", indent: true },
-                { label: "All About Feet", indent: true }, */
-                { label: "Contact", indent: true },
-                { label: "About", indent: true },
-                // { label: "Report Issue", indent: true },
+                
+                { label: "Products", indent:false },
+                { label: "Contact", indent: false },
+                { label: "About", indent: false },
+             
               ].map((item) => (
                 <motion.li
                   key={item.label}
@@ -221,7 +177,11 @@ export default function Footer() {
                       whileHover="hover"
                       whileTap="tap"
                     >
-                      <span className={`w-${item.indent ? '1.5' : '2'} h-${item.indent ? '1.5' : '2'} bg-[#FFFFFF] rounded-full`} />
+                      <span
+                        className={`bg-[#FFFFFF] rounded-full ${
+                          item.indent ? "h-1.5 w-1.5" : "h-2 w-2"
+                        }`}
+                      />
                     </motion.div>
                     {item.label}
                   </motion.a>
