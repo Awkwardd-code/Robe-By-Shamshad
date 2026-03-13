@@ -268,10 +268,9 @@ const formatAppliedAt = (value: string) => {
 export default function CheckoutPage() {
   const { clearCart, activeCheckoutItems, appliedCoupon, applyCoupon, clearCoupon } =
     useCommerce();
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { isLoading: isAuthLoading } = useAuth();
   const { lastProductSelection, lastComboSelection } = useBuyNow();
-  const isAuthenticated = Boolean(user);
-  const effectiveAppliedCoupon = isAuthenticated ? appliedCoupon : null;
+  const effectiveAppliedCoupon = appliedCoupon;
 
   const latestSelection = useMemo<LatestSelection>(() => {
     if (lastProductSelection && lastComboSelection) {
@@ -377,16 +376,6 @@ export default function CheckoutPage() {
   );
   const lastSuggestedCouponRef = useRef<string>("");
 
-  useEffect(() => {
-    if (isAuthLoading) return;
-    if (!user) {
-      if (appliedCoupon) clearCoupon();
-      setCouponCode("");
-      setCouponMessage(null);
-      setCouponError(null);
-    }
-  }, [user, isAuthLoading, appliedCoupon, clearCoupon]);
-
   const suggestCouponCode = useCallback(
     (nextCode: string, allowWhenApplied = false) => {
       if (effectiveAppliedCoupon && !allowWhenApplied) return;
@@ -402,13 +391,6 @@ export default function CheckoutPage() {
 
   const loadAvailableCoupons = useCallback(
     async (options?: { allowWhenApplied?: boolean }) => {
-      if (!isAuthenticated) {
-        setAvailableCoupons([]);
-        setAvailableCouponsError(null);
-        lastSuggestedCouponRef.current = "";
-        return;
-      }
-
       setIsLoadingCouponsList(true);
       setAvailableCouponsError(null);
       try {
@@ -461,20 +443,13 @@ export default function CheckoutPage() {
         setIsLoadingCouponsList(false);
       }
     },
-    [isAuthenticated, suggestCouponCode, couponCode]
+    [suggestCouponCode, couponCode]
   );
 
   useEffect(() => {
     if (isAuthLoading) return;
-    if (!isAuthenticated) {
-      setAvailableCoupons([]);
-      setAvailableCouponsError(null);
-      lastSuggestedCouponRef.current = "";
-      return;
-    }
-
     void loadAvailableCoupons();
-  }, [isAuthLoading, isAuthenticated]);
+  }, [isAuthLoading]);
 
   const handleApplyCoupon = async () => {
     setCouponMessage(null);
@@ -483,11 +458,6 @@ export default function CheckoutPage() {
     const code = couponCode.trim();
     if (!code) {
       setCouponError("Please enter a coupon code.");
-      return;
-    }
-
-    if (!user) {
-      setCouponError("Please log in to apply a coupon.");
       return;
     }
 
@@ -511,6 +481,8 @@ export default function CheckoutPage() {
         code?: string;
         discountPercentage?: number;
         discountedPrice?: number;
+        minSubtotal?: number;
+        source?: string;
       };
 
       if (!coupon?._id || !coupon.code) {
@@ -523,6 +495,9 @@ export default function CheckoutPage() {
         name: coupon.name ?? "",
         discountPercentage: coupon.discountPercentage,
         discountedPrice: coupon.discountedPrice,
+        minSubtotal:
+          typeof coupon.minSubtotal === "number" ? coupon.minSubtotal : undefined,
+        source: typeof coupon.source === "string" ? coupon.source : undefined,
         appliedAt: data?.redemption?.appliedAt || new Date().toISOString(),
         discountAmount:
           typeof data?.redemption?.discountAmount === "number"
@@ -595,6 +570,12 @@ export default function CheckoutPage() {
   const discountAmount = (() => {
     if (!effectiveAppliedCoupon) return 0;
     if (
+      typeof effectiveAppliedCoupon.minSubtotal === "number" &&
+      subtotal < effectiveAppliedCoupon.minSubtotal
+    ) {
+      return 0;
+    }
+    if (
       effectiveAppliedCoupon.discountPercentage &&
       effectiveAppliedCoupon.discountPercentage > 0
     ) {
@@ -610,14 +591,31 @@ export default function CheckoutPage() {
   })();
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!effectiveAppliedCoupon) return;
+    if (
+      typeof effectiveAppliedCoupon.minSubtotal !== "number" ||
+      subtotal >= effectiveAppliedCoupon.minSubtotal
+    ) {
+      return;
+    }
+
+    clearCoupon();
+    setCouponMessage(null);
+    setCouponError(
+      `Coupon ${effectiveAppliedCoupon.code} requires minimum subtotal ${formatPriceBDT(
+        effectiveAppliedCoupon.minSubtotal
+      )}.`
+    );
+  }, [effectiveAppliedCoupon, subtotal, clearCoupon]);
+
+  useEffect(() => {
     if (!appliedCoupon) return;
     if (appliedCoupon.discountAmount === discountAmount) return;
     applyCoupon({
       ...appliedCoupon,
       discountAmount,
     });
-  }, [isAuthenticated, appliedCoupon, discountAmount, applyCoupon]);
+  }, [appliedCoupon, discountAmount, applyCoupon]);
 
   // ==================== ✅ DELIVERY (UPDATED) ====================
 
@@ -838,6 +836,8 @@ export default function CheckoutPage() {
               name: effectiveAppliedCoupon.name,
               discountPercentage: effectiveAppliedCoupon.discountPercentage,
               discountedPrice: effectiveAppliedCoupon.discountedPrice,
+              minSubtotal: effectiveAppliedCoupon.minSubtotal,
+              source: effectiveAppliedCoupon.source,
               appliedAt: effectiveAppliedCoupon.appliedAt,
               discountAmount: effectiveAppliedCoupon.discountAmount ?? discountAmount,
             }
@@ -1244,11 +1244,10 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {isAuthenticated &&
-                  (appliedCoupon ||
-                    isLoadingCouponsList ||
-                    availableCouponsError ||
-                    availableCoupons.length > 0) && (
+                {(appliedCoupon ||
+                  isLoadingCouponsList ||
+                  availableCouponsError ||
+                  availableCoupons.length > 0) && (
                   <div className="border border-gray-200 bg-white shadow-sm">
                     <div className="flex items-center gap-3 bg-[#3f3f3f] px-4 py-2 text-white">
                       <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/60 text-xs font-bold">

@@ -35,6 +35,18 @@ const parseNumberField = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const serializeCoupon = (coupon: any) => ({
+  _id: coupon._id.toString(),
+  name: coupon.name,
+  code: coupon.code,
+  startDate: coupon.startDate,
+  endDate: coupon.endDate,
+  discountPercentage: coupon.discountPercentage,
+  discountedPrice: coupon.discountedPrice,
+  minSubtotal: coupon.minSubtotal,
+  source: coupon.source,
+});
+
 async function getSessionUserId(req: NextRequest, db: Db) {
   const token = req.cookies.get(AUTH_COOKIE_NAME)?.value;
   if (!token) return null;
@@ -62,9 +74,7 @@ export async function POST(request: NextRequest) {
   try {
     const db = await connectToDatabase();
     const userId = await getSessionUserId(request, db);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const userIdString = userId ? userId.toString() : null;
 
     const body = await request.json().catch(() => ({}));
     const subtotalRaw = parseNumberField(body?.subtotal);
@@ -81,44 +91,59 @@ export async function POST(request: NextRequest) {
     const redemptionCollection = db.collection("couponRedemptions");
     const now = new Date();
 
-    const existingCoupons = await couponsCollection
-      .find({
-        assignedUserId: userId,
+    if (userId && userIdString) {
+      const existingCoupons = await couponsCollection
+        .find({
+          source: CART_COUPON_SOURCE,
+          startDate: { $lte: now },
+          endDate: { $gte: now },
+          $or: [{ assignedUserId: userId }, { assignedUserId: userIdString }],
+        })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .toArray();
+
+      if (existingCoupons.length > 0) {
+        const existingIds = existingCoupons.map((coupon) => coupon._id);
+        const redemptions = await redemptionCollection
+          .find({
+            couponId: { $in: existingIds },
+            $or: [{ userId }, { userId: userIdString }, { actorId: userIdString }],
+          })
+          .project({ couponId: 1 })
+          .toArray();
+        const redeemedSet = new Set(
+          redemptions.map((entry: any) => entry.couponId?.toString())
+        );
+
+        const unused = existingCoupons.find(
+          (coupon) => !redeemedSet.has(coupon._id.toString())
+        );
+
+        if (unused) {
+          return NextResponse.json(
+            {
+              eligible: true,
+              coupon: serializeCoupon(unused),
+            },
+            { status: 200 }
+          );
+        }
+      }
+    } else {
+      const existingPublicCoupon = await couponsCollection.findOne({
         source: CART_COUPON_SOURCE,
+        minSubtotal: CART_COUPON_MIN_SUBTOTAL,
         startDate: { $lte: now },
         endDate: { $gte: now },
-      })
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .toArray();
+        $or: [{ assignedUserId: { $exists: false } }, { assignedUserId: null }],
+      });
 
-    if (existingCoupons.length > 0) {
-      const existingIds = existingCoupons.map((coupon) => coupon._id);
-      const redemptions = await redemptionCollection
-        .find({ userId, couponId: { $in: existingIds } })
-        .project({ couponId: 1 })
-        .toArray();
-      const redeemedSet = new Set(
-        redemptions.map((entry: any) => entry.couponId?.toString())
-      );
-
-      const unused = existingCoupons.find(
-        (coupon) => !redeemedSet.has(coupon._id.toString())
-      );
-
-      if (unused) {
+      if (existingPublicCoupon) {
         return NextResponse.json(
           {
             eligible: true,
-            coupon: {
-              _id: unused._id.toString(),
-              name: unused.name,
-              code: unused.code,
-              startDate: unused.startDate,
-              endDate: unused.endDate,
-              discountPercentage: unused.discountPercentage,
-              discountedPrice: unused.discountedPrice,
-            },
+            coupon: serializeCoupon(existingPublicCoupon),
           },
           { status: 200 }
         );
@@ -154,7 +179,7 @@ export async function POST(request: NextRequest) {
       discountedPrice: null,
       appliesTo: "cart_threshold",
       source: CART_COUPON_SOURCE,
-      assignedUserId: userId,
+      assignedUserId: userId ?? null,
       minSubtotal: CART_COUPON_MIN_SUBTOTAL,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -175,15 +200,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         eligible: true,
-        coupon: {
-          _id: createdCoupon._id.toString(),
-          name: createdCoupon.name,
-          code: createdCoupon.code,
-          startDate: createdCoupon.startDate,
-          endDate: createdCoupon.endDate,
-          discountPercentage: createdCoupon.discountPercentage,
-          discountedPrice: createdCoupon.discountedPrice,
-        },
+        coupon: serializeCoupon(createdCoupon),
       },
       { status: 201 }
     );

@@ -127,6 +127,8 @@ export interface AppliedCoupon {
   name?: string;
   discountPercentage?: number;
   discountedPrice?: number;
+  minSubtotal?: number;
+  source?: string;
   appliedAt: string;
   discountAmount?: number;
 }
@@ -242,6 +244,8 @@ const sanitizeAppliedCoupon = (raw: unknown): AppliedCoupon | null => {
       typeof data.discountPercentage === "number" ? data.discountPercentage : undefined,
     discountedPrice:
       typeof data.discountedPrice === "number" ? data.discountedPrice : undefined,
+    minSubtotal: typeof data.minSubtotal === "number" ? data.minSubtotal : undefined,
+    source: typeof data.source === "string" ? data.source : undefined,
     appliedAt: data.appliedAt,
     discountAmount:
       typeof data.discountAmount === "number" ? data.discountAmount : undefined,

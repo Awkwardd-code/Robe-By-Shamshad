@@ -38,36 +38,42 @@ export async function GET(request: NextRequest) {
   try {
     const db = await connectToDatabase();
     const userId = await getSessionUserId(request, db);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const userIdString = userId ? userId.toString() : null;
 
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "6", 10);
     const resolvedLimit = Number.isFinite(limit) && limit > 0 ? limit : 6;
 
     const now = new Date();
-    const redemptions = await db
-      .collection("couponRedemptions")
-      .find({ userId })
-      .project({ couponId: 1 })
-      .toArray();
+    let usedCouponIds: ObjectId[] = [];
+    if (userId && userIdString) {
+      const redemptions = await db
+        .collection("couponRedemptions")
+        .find({
+          $or: [{ userId }, { userId: userIdString }, { actorId: userIdString }],
+        })
+        .project({ couponId: 1 })
+        .toArray();
 
-    const usedCouponIds = redemptions
-      .map((item: any) => item.couponId)
-      .filter((id: any) => ObjectId.isValid(id))
-      .map((id: any) => new ObjectId(id));
+      usedCouponIds = redemptions
+        .map((item: any) => item.couponId)
+        .filter((id: any) => ObjectId.isValid(id))
+        .map((id: any) => new ObjectId(id));
+    }
 
     const couponsCollection = db.collection("coupons");
     const query: any = {
       startDate: { $lte: now },
       endDate: { $gte: now },
     };
-    query.$or = [
-      { assignedUserId: { $exists: false } },
-      { assignedUserId: null },
-      { assignedUserId: userId },
-    ];
+    query.$or = userId && userIdString
+      ? [
+          { assignedUserId: { $exists: false } },
+          { assignedUserId: null },
+          { assignedUserId: userId },
+          { assignedUserId: userIdString },
+        ]
+      : [{ assignedUserId: { $exists: false } }, { assignedUserId: null }];
 
     if (usedCouponIds.length > 0) {
       query._id = { $nin: usedCouponIds };

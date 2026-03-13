@@ -17,6 +17,8 @@ interface Coupon {
   endDate: string;
   discountPercentage?: number;
   discountedPrice?: number;
+  minSubtotal?: number;
+  source?: string;
   appliesTo?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -360,7 +362,7 @@ const CouponsPage: React.FC = () => {
             Admin Coupons
           </p>
           <h1 className="text-2xl font-bold text-gray-900">Coupons</h1>
-          <p className="text-sm text-gray-500">Valid for all users.</p>
+          <p className="text-sm text-gray-500">Valid for guest and signed-in users.</p>
         </div>
         <button
           type="button"
@@ -433,7 +435,20 @@ const CouponsPage: React.FC = () => {
                     <tr key={coupon._id} className="hover:bg-gray-50/70">
                       <td className="px-4 py-4">
                         <div className="font-semibold text-gray-900">{coupon.name}</div>
-                        <div className="text-xs text-gray-400">Applies to all users</div>
+                        <div className="text-xs text-gray-400">
+                          Applies to guest and signed-in users
+                        </div>
+                        {typeof coupon.minSubtotal === "number" &&
+                          coupon.minSubtotal > 0 && (
+                            <div className="text-xs text-amber-600">
+                              Min subtotal: BDT {coupon.minSubtotal.toLocaleString("en-US")}
+                            </div>
+                          )}
+                        {coupon.source === "cart_threshold_10" && (
+                          <div className="text-xs text-sky-600">
+                            Auto cart-threshold coupon
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <span className="rounded-lg bg-gray-100 px-3 py-1 font-mono text-xs uppercase tracking-[0.2em] text-gray-700">
@@ -531,7 +546,9 @@ const CouponsPage: React.FC = () => {
                   <Dialog.Title className="text-2xl font-bold text-gray-900">
                     Create Coupon
                   </Dialog.Title>
-                  <p className="mt-1 text-sm text-gray-500">Valid for all users.</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Valid for guest and signed-in users.
+                  </p>
 
                   <form onSubmit={handleAddSubmit} className="mt-6 space-y-5">
                     <div>
@@ -715,7 +732,9 @@ const CouponsPage: React.FC = () => {
                   <Dialog.Title className="text-2xl font-bold text-gray-900">
                     Update Coupon
                   </Dialog.Title>
-                  <p className="mt-1 text-sm text-gray-500">Valid for all users.</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Valid for guest and signed-in users.
+                  </p>
 
                   {selectedCoupon && (
                     <form onSubmit={handleUpdateSubmit} className="mt-6 space-y-5">

@@ -46,9 +46,7 @@ export async function POST(request: NextRequest) {
   try {
     const db = await connectToDatabase();
     const userId = await getSessionUserId(request, db);
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const userIdString = userId ? userId.toString() : null;
 
     const body = await request.json();
     const codeRaw = typeof body?.code === "string" ? body.code : "";
@@ -76,11 +74,11 @@ export async function POST(request: NextRequest) {
 
     const assignedUserId = coupon.assignedUserId;
     if (assignedUserId) {
-      const assignedId =
+      const assignedIdString =
         typeof assignedUserId === "string"
-          ? new ObjectId(assignedUserId)
-          : assignedUserId;
-      if (assignedId.toString() !== userId.toString()) {
+          ? assignedUserId
+          : assignedUserId?.toString?.() ?? "";
+      if (!userIdString || assignedIdString !== userIdString) {
         return NextResponse.json(
           { error: "This coupon is not assigned to your account" },
           { status: 403 }
@@ -116,16 +114,18 @@ export async function POST(request: NextRequest) {
     }
 
     const redemptionCollection = db.collection("couponRedemptions");
-    const existingRedemption = await redemptionCollection.findOne({
-      userId,
-      couponId: coupon._id,
-    });
+    if (userId && userIdString) {
+      const existingRedemption = await redemptionCollection.findOne({
+        couponId: coupon._id,
+        $or: [{ userId }, { userId: userIdString }, { actorId: userIdString }],
+      });
 
-    if (existingRedemption) {
-      return NextResponse.json(
-        { error: "You have already used this coupon" },
-        { status: 409 }
-      );
+      if (existingRedemption) {
+        return NextResponse.json(
+          { error: "You have already used this coupon" },
+          { status: 409 }
+        );
+      }
     }
 
     const discountPercentage = parseNumberField(coupon.discountPercentage);
@@ -152,16 +152,19 @@ export async function POST(request: NextRequest) {
     }
 
     const appliedAt = new Date();
-    await redemptionCollection.insertOne({
-      userId,
-      couponId: coupon._id,
-      code: coupon.code,
-      discountPercentage,
-      discountedPrice,
-      subtotal,
-      discountAmount,
-      appliedAt,
-    });
+    if (userId && userIdString) {
+      await redemptionCollection.insertOne({
+        userId,
+        actorId: userIdString,
+        couponId: coupon._id,
+        code: coupon.code,
+        discountPercentage,
+        discountedPrice,
+        subtotal,
+        discountAmount,
+        appliedAt,
+      });
+    }
 
     return NextResponse.json(
       {
@@ -173,6 +176,8 @@ export async function POST(request: NextRequest) {
           endDate: coupon.endDate,
           discountPercentage,
           discountedPrice,
+          minSubtotal: minSubtotal ?? undefined,
+          source: typeof coupon.source === "string" ? coupon.source : undefined,
         },
         redemption: {
           appliedAt: appliedAt.toISOString(),

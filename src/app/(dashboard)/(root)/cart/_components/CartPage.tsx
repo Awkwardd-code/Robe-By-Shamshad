@@ -29,6 +29,8 @@ interface CouponSummary {
   endDate: string;
   discountPercentage?: number;
   discountedPrice?: number;
+  minSubtotal?: number;
+  source?: string;
 }
 
 type AvailableCoupon = {
@@ -37,6 +39,8 @@ type AvailableCoupon = {
   name?: string;
   discountPercentage?: number;
   discountedPrice?: number;
+  minSubtotal?: number;
+  source?: string;
 };
 
 // ---------- UI helpers for “Woo-style” cart ----------
@@ -80,8 +84,7 @@ export default function CartPage() {
     applyCoupon,
     clearCoupon,
   } = useCommerce();
-  const { user, isLoading: isAuthLoading } = useAuth();
-  const isAuthenticated = Boolean(user);
+  const { isLoading: isAuthLoading } = useAuth();
 
   const [couponCode, setCouponCode] = useState("");
   const [availableCoupons, setAvailableCoupons] = useState<AvailableCoupon[]>([]);
@@ -96,7 +99,6 @@ export default function CartPage() {
   const [removedItem, setRemovedItem] = useState<CartEntry | null>(null);
   const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSuggestedCouponRef = useRef<string>("");
-  const lastThresholdEligibilityRef = useRef(false);
 
   const subtotal = cartItems.reduce(
     (sum, entry) => sum + entry.product.price * entry.quantity,
@@ -104,6 +106,12 @@ export default function CartPage() {
   );
   const discountAmount = (() => {
     if (!appliedCoupon) return 0;
+    if (
+      typeof appliedCoupon.minSubtotal === "number" &&
+      subtotal < appliedCoupon.minSubtotal
+    ) {
+      return 0;
+    }
     if (appliedCoupon.discountPercentage && appliedCoupon.discountPercentage > 0) {
       return Math.round((subtotal * appliedCoupon.discountPercentage) / 100);
     }
@@ -124,29 +132,33 @@ export default function CartPage() {
   }, [appliedCoupon, discountAmount, applyCoupon]);
 
   useEffect(() => {
-    if (isAuthLoading) return;
-    if (!isAuthenticated) {
-      if (appliedCoupon) clearCoupon();
-      setCouponCode("");
-      setCouponError(null);
-      setAvailableCoupons([]);
-      setAvailableCouponsError(null);
-      lastSuggestedCouponRef.current = "";
+    if (!appliedCoupon) return;
+    if (
+      typeof appliedCoupon.minSubtotal !== "number" ||
+      subtotal >= appliedCoupon.minSubtotal
+    ) {
+      return;
     }
-  }, [isAuthLoading, isAuthenticated, appliedCoupon, clearCoupon]);
+
+    clearCoupon();
+    setCouponError(
+      `Coupon ${appliedCoupon.code} requires minimum subtotal ${formatCurrency(
+        appliedCoupon.minSubtotal
+      )}.`
+    );
+  }, [appliedCoupon, subtotal, clearCoupon]);
 
   // Threshold coupon progress bar
   const remainingForCoupon = Math.max(0, CART_COUPON_THRESHOLD_BDT - subtotal);
   const progress = clamp(pct(subtotal, CART_COUPON_THRESHOLD_BDT), 0, 100);
   const isThresholdEligible = cartItems.length > 0 && remainingForCoupon <= 0;
   const showCouponSection =
-    isAuthenticated &&
-    (appliedCoupon ||
-      isFetchingCoupons ||
-      availableCouponsError ||
-      availableCoupons.length > 0 ||
-      isThresholdEligible ||
-      isCreatingThresholdCoupon);
+    appliedCoupon ||
+    isFetchingCoupons ||
+    availableCouponsError ||
+    availableCoupons.length > 0 ||
+    isThresholdEligible ||
+    isCreatingThresholdCoupon;
 
   const handleRemoveItem = (id: string) => {
     const entry = cartItems.find((item) => item.product.id === id);
@@ -181,10 +193,6 @@ export default function CartPage() {
   };
 
   const applyCouponToCart = async (code: string) => {
-    if (!user) {
-      setCouponError("Please log in to apply coupons.");
-      return;
-    }
     const normalized = code.trim();
     if (!normalized) {
       setCouponError("Enter a coupon code.");
@@ -225,6 +233,9 @@ export default function CartPage() {
         name: coupon.name,
         discountPercentage: coupon.discountPercentage,
         discountedPrice: coupon.discountedPrice,
+        minSubtotal:
+          typeof coupon.minSubtotal === "number" ? coupon.minSubtotal : undefined,
+        source: typeof coupon.source === "string" ? coupon.source : undefined,
         appliedAt: redemption?.appliedAt || new Date().toISOString(),
         discountAmount:
           typeof redemption?.discountAmount === "number"
@@ -261,13 +272,6 @@ export default function CartPage() {
 
   const loadAvailableCoupons = useCallback(
     async (options?: { allowWhenApplied?: boolean }) => {
-      if (!isAuthenticated) {
-        setAvailableCoupons([]);
-        setAvailableCouponsError(null);
-        lastSuggestedCouponRef.current = "";
-        return;
-      }
-
       setIsFetchingCoupons(true);
       setAvailableCouponsError(null);
       try {
@@ -297,6 +301,11 @@ export default function CartPage() {
                 typeof coupon.discountedPrice === "number"
                   ? coupon.discountedPrice
                   : undefined,
+              minSubtotal:
+                typeof coupon.minSubtotal === "number"
+                  ? coupon.minSubtotal
+                  : undefined,
+              source: typeof coupon.source === "string" ? coupon.source : undefined,
             };
           })
           .filter((coupon: AvailableCoupon) => coupon.code.trim().length > 0);
@@ -315,11 +324,10 @@ export default function CartPage() {
         setIsFetchingCoupons(false);
       }
     },
-    [isAuthenticated, suggestCouponCode, couponCode]
+    [suggestCouponCode, couponCode]
   );
 
   const ensureThresholdCoupon = useCallback(async () => {
-    if (!isAuthenticated) return;
     if (!isThresholdEligible) return;
     if (appliedCoupon) return;
     if (isCreatingThresholdCoupon) return;
@@ -341,13 +349,13 @@ export default function CartPage() {
       if (data?.coupon?.code) {
         await loadAvailableCoupons({ allowWhenApplied: true });
       }
-    } catch (error) {
+    } catch (error: any) {
+      setCouponError(error?.message || "Unable to generate threshold coupon.");
       console.warn("Unable to create threshold coupon", error);
     } finally {
       setIsCreatingThresholdCoupon(false);
     }
   }, [
-    isAuthenticated,
     isThresholdEligible,
     appliedCoupon,
     isCreatingThresholdCoupon,
@@ -363,35 +371,29 @@ export default function CartPage() {
 
   useEffect(() => {
     if (isAuthLoading) return;
-    if (!isAuthenticated) {
-      setAvailableCoupons([]);
-      setAvailableCouponsError(null);
-      lastSuggestedCouponRef.current = "";
-      return;
-    }
-
     void loadAvailableCoupons();
-  }, [isAuthLoading, isAuthenticated, loadAvailableCoupons]);
+  }, [isAuthLoading]);
 
   useEffect(() => {
-    if (isAuthLoading || !isAuthenticated) {
-      lastThresholdEligibilityRef.current = false;
-      return;
-    }
+    if (isAuthLoading) return;
+    if (!isThresholdEligible || appliedCoupon || isCreatingThresholdCoupon) return;
 
-    if (!isThresholdEligible || appliedCoupon) {
-      lastThresholdEligibilityRef.current = false;
-      return;
-    }
+    const hasThresholdCoupon = availableCoupons.some((coupon) => {
+      const isSourceMatch = coupon.source === CART_COUPON_SOURCE;
+      const isKnownThresholdShape =
+        coupon.discountPercentage === CART_COUPON_DISCOUNT_PERCENT &&
+        coupon.minSubtotal === CART_COUPON_THRESHOLD_BDT;
+      return isSourceMatch || isKnownThresholdShape;
+    });
 
-    if (lastThresholdEligibilityRef.current) return;
-    lastThresholdEligibilityRef.current = true;
+    if (hasThresholdCoupon) return;
     void ensureThresholdCoupon();
   }, [
     isAuthLoading,
-    isAuthenticated,
     isThresholdEligible,
     appliedCoupon,
+    isCreatingThresholdCoupon,
+    availableCoupons,
     ensureThresholdCoupon,
   ]);
 
@@ -590,7 +592,7 @@ export default function CartPage() {
                 <div className="border-t border-gray-200 px-5 py-5">
                   <div className="space-y-4">
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                      {isAuthenticated && showCouponSection && !appliedCoupon && (
+                      {showCouponSection && !appliedCoupon && (
                         <>
                           {isFetchingCoupons || isCreatingThresholdCoupon ? (
                             <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
@@ -630,15 +632,15 @@ export default function CartPage() {
                       </button>
                     </div>
 
-                    {isAuthenticated && couponError && (
+                    {couponError && (
                       <p className="text-sm text-rose-600">{couponError}</p>
                     )}
 
-                    {isAuthenticated && availableCouponsError && (
+                    {availableCouponsError && (
                       <p className="text-sm text-rose-600">{availableCouponsError}</p>
                     )}
 
-                    {isAuthenticated && appliedCoupon && (
+                    {appliedCoupon && (
                       <div className="border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-gray-700">
                         <div className="flex items-start justify-between gap-4">
                           <div>
@@ -673,7 +675,7 @@ export default function CartPage() {
                       </div>
                     )}
 
-                    {isAuthenticated && !appliedCoupon && showCouponSection && (
+                    {!appliedCoupon && showCouponSection && (
                       <div className="space-y-2">
                         <div className="text-sm font-semibold text-gray-700">
                           Recent unused coupons
