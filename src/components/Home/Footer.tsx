@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, type Variants } from "framer-motion";
-import { Send, Facebook, Twitter, Instagram, Youtube, Award, Camera, Users, FileText, Shield, Phone, Mail, MapPin, ChevronRight } from "lucide-react";
+import { Send, Facebook, Linkedin, Instagram, Youtube, Award, Camera, Users, FileText, Shield, Phone, Mail, MapPin, ChevronRight } from "lucide-react";
 
 export default function Footer() {
   const [email, setEmail] = useState("");
@@ -198,7 +198,7 @@ export default function Footer() {
                 whileHover={{ scale: 1.02 }}
                 transition={{ type: "spring" as const, stiffness: 300 }}
               >
-                <p className={`${mutedTextColor} font-medium`}>Bites Shop Company Bangladesh Ltd.</p>
+                <p className={`${mutedTextColor} font-medium`}>Robe by Shamshad</p>
                 <motion.div 
                   className="flex items-start gap-2 mt-2"
                   whileHover={{ x: 3 }}
@@ -209,7 +209,7 @@ export default function Footer() {
                   >
                     <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-[#FFFFFF]" />
                   </motion.div>
-                  <span className="text-sm text-[#A9A9A9]">Tongi Carbon, Bangladesh.</span>
+                  <span className="text-sm text-[#A9A9A9]">নিকেতন, গুলশান ১, ঢাকা, বাংলাদেশ।</span>
                 </motion.div>
               </motion.div>
 
@@ -230,7 +230,7 @@ export default function Footer() {
                   >
                     <Phone className="h-4 w-4 text-[#FFFFFF]" />
                   </motion.div>
-                  <span className="text-sm text-[#A9A9A9]">Call us at: 00862020309 (Ben-Semi)</span>
+                  <span className="text-sm text-[#A9A9A9]">Call us at:  +880 1401-836480</span>
                 </motion.div>
                 <motion.div 
                   className="flex items-center gap-2"
@@ -243,7 +243,7 @@ export default function Footer() {
                   >
                     <Mail className="h-4 w-4 text-[#FFFFFF]" />
                   </motion.div>
-                  <span className="text-sm text-[#A9A9A9]">Email: bdscustomercare@uni-bs.com</span>
+                  <span className="text-sm text-[#A9A9A9]">Email: shamshad.robe@gmail.com</span>
                 </motion.div>
               </motion.div>
 
@@ -315,10 +315,10 @@ export default function Footer() {
               viewport={{ once: true }}
             >
               {[
-                { icon: Facebook, href: "https://facebook.com" },
-                { icon: Twitter, href: "https://twitter.com" },
-                { icon: Instagram, href: "https://instagram.com" },
-                { icon: Youtube, href: "https://youtube.com" },
+                { icon: Facebook, href: "https://www.facebook.com/robebyshamshad/" },
+                { icon: Linkedin, href: "https://bd.linkedin.com/in/robe-by-shamshad-abb15b293" },
+                { icon: Instagram, href: "https://www.instagram.com/robebyshamshad/" },
+                { icon: Youtube, href: "https://www.youtube.com/@RobebyShamshad" },
               ].map((social, index) => (
                 <motion.a
                   key={social.href}
