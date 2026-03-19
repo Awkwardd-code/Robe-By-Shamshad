@@ -1290,47 +1290,19 @@ export default function Header() {
                                     />
                                 </svg>
 
-                                {/* Main brand name with curvy effect */}
+                                {/* Main brand name with single semantic text node */}
                                 <div className="relative">
-                                    <h1
-                                        className="text-center text-[12px] font-black leading-tight"
+                                    <div
+                                        className="text-center text-[12px] font-black leading-tight text-[#1F1B18] tracking-[0.18em]"
                                         style={{
                                             fontFamily: FONTS.brand,
-                                            textShadow: '0.5px 0.5px 1px rgba(31, 27, 24, 0.1)'
+                                            textShadow:
+                                                "0 1px 0 rgba(212, 167, 106, 0.18), 0 2px 1px rgba(31, 27, 24, 0.12)",
                                         }}
+                                        aria-label={BRAND_NAME}
                                     >
-                                        {/* Curvy text effect using multiple layers */}
-                                        <span className="relative inline-block">
-                                            {/* Base text */}
-                                            <span className="text-[#1F1B18] tracking-[0.18em]">
-                                                {BRAND_NAME}
-                                            </span>
-
-                                            {/* Top curvy highlight */}
-                                            <span
-                                                className="absolute top-0 left-0 text-transparent bg-clip-text bg-linear-to-r from-transparent via-[#D4A76A]/30 to-transparent tracking-[0.18em]"
-                                                style={{
-                                                    transform: 'translateY(-1px)',
-                                                    fontFamily: FONTS.brand,
-                                                    fontWeight: '900'
-                                                }}
-                                            >
-                                                {BRAND_NAME}
-                                            </span>
-
-                                            {/* Bottom shadow for depth */}
-                                            <span
-                                                className="absolute top-0 left-0 text-transparent bg-clip-text bg-linear-to-r from-transparent via-[#6B0F1A]/10 to-transparent tracking-[0.18em]"
-                                                style={{
-                                                    transform: 'translateY(1px)',
-                                                    fontFamily: FONTS.brand,
-                                                    fontWeight: '900'
-                                                }}
-                                            >
-                                                {BRAND_NAME}
-                                            </span>
-                                        </span>
-                                    </h1>
+                                        {BRAND_NAME}
+                                    </div>
 
                                     {/* Curvy underline */}
                                     <svg
@@ -1368,12 +1340,12 @@ export default function Header() {
                         {/* Mobile Brand Name - Only shown on mobile devices */}
                         {/*  <div className="md:hidden flex justify-center ml-8">
                             <div className="text-center">
-                                <h1
+                                <div
                                     className="text-[12px] font-black tracking-[0.15em] text-[#1F1B18]"
                                     style={{ fontFamily: FONTS.brand }}
                                 >
                                     {BRAND_NAME}
-                                </h1>
+                                </div>
                                 <p className="text-[6px] font-medium tracking-[0.25em] text-[#8C7F78] mt-0.5 uppercase">
                                     Premium Fashion
                                 </p>

@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import ProductPage from "./_components/ProductPage";
+
+export const metadata: Metadata = {
+  title: "Products | Robe by Shamshad",
+  description:
+    "Browse premium clothing and apparel by Robe by Shamshad, crafted for modern style in Dhaka, Bangladesh.",
+  alternates: {
+    canonical: "/products",
+  },
+};
 
 const page = () => {
   return (
@@ -19,4 +29,4 @@ function ProductPageFallback() {
   );
 }
 
-export default page
+export default page;

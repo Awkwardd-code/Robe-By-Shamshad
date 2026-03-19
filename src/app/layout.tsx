@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import MetaCapi from "@/components/MetaCapi";
@@ -19,19 +19,69 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const viewport = { width: "device-width", initialScale: 1 };
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
+};
 
-export const themeColor = [
-  { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-  { media: "(prefers-color-scheme: dark)", color: "#000000" },
-];
+const ORGANIZATION_LD_JSON = {
+  "@context": "https://schema.org",
+  "@type": "ClothingStore",
+  "@id": "https://robe.byshamshad.com/#organization",
+  name: "Robe by Shamshad",
+  url: "https://robe.byshamshad.com",
+  logo: "https://robe.byshamshad.com/logo.jpg",
+  image: "https://robe.byshamshad.com/logo.jpg",
+  description:
+    "Robe by Shamshad is a premium clothing brand in Dhaka, Bangladesh offering modern apparel for men and women.",
+  parentOrganization: {
+    "@type": "Organization",
+    name: "Bites Shop Company Bangladesh Ltd.",
+  },
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "Niketan, Gulshan 1",
+    addressLocality: "Dhaka",
+    addressCountry: "BD",
+  },
+  telephone: "+8801401836480",
+  email: "shamshad.robe@gmail.com",
+  areaServed: "Bangladesh",
+  brand: {
+    "@type": "Brand",
+    name: "Robe by Shamshad",
+  },
+  sameAs: [
+    "https://www.facebook.com/robebyshamshad/",
+    "https://www.instagram.com/robebyshamshad/",
+    "https://bd.linkedin.com/in/robe-by-shamshad-abb15b293",
+    "https://www.youtube.com/@RobebyShamshad",
+  ],
+};
 
+/* 🔥 IMPROVED METADATA */
 export const metadata: Metadata = {
   metadataBase: new URL("https://robe.byshamshad.com"),
 
-  title: "Robe by Shamshad | Modern Clothing & Apparel",
+  title:
+    "Robe by Shamshad | Premium Clothing & Apparel in Dhaka, Bangladesh",
+
   description:
-    "Discover Robe by Shamshad, your go-to destination for trendy and high-quality clothing and apparel. Explore our diverse collection and elevate your style today.",
+    "Robe by Shamshad is a premium clothing brand based in Dhaka, Bangladesh, offering modern, high-quality apparel for men and women. Discover stylish collections, enjoy free delivery on your first purchase, and elevate your everyday fashion.",
+
+  keywords: [
+    "Robe by Shamshad",
+    "Clothing brand in Dhaka",
+    "Bangladesh fashion",
+    "Premium apparel Bangladesh",
+    "Men and women clothing Dhaka",
+  ],
+
+  authors: [{ name: "Robe by Shamshad" }],
 
   icons: {
     icon: "/favicon.ico",
@@ -44,9 +94,10 @@ export const metadata: Metadata = {
   },
 
   openGraph: {
-    title: "Robe by Shamshad | Modern Clothing & Apparel",
+    title:
+      "Robe by Shamshad | Premium Clothing & Apparel in Dhaka",
     description:
-      "Discover Robe by Shamshad, your go-to destination for trendy and high-quality clothing and apparel.",
+      "Premium clothing brand in Dhaka offering modern apparel for men and women. Shop high-quality fashion and enjoy free delivery on your first purchase.",
     url: "https://robe.byshamshad.com",
     siteName: "Robe by Shamshad",
     images: [
@@ -54,7 +105,7 @@ export const metadata: Metadata = {
         url: "https://robe.byshamshad.com/logo.jpg",
         width: 1200,
         height: 630,
-        alt: "Robe by Shamshad",
+        alt: "Robe by Shamshad Clothing Brand",
       },
     ],
     locale: "en_US",
@@ -63,9 +114,10 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: "Robe by Shamshad | Modern Clothing & Apparel",
+    title:
+      "Robe by Shamshad | Premium Clothing & Apparel in Dhaka",
     description:
-      "Discover Robe by Shamshad, your go-to destination for trendy and high-quality clothing and apparel.",
+      "Discover premium fashion from Robe by Shamshad in Dhaka, Bangladesh.",
     images: ["https://robe.byshamshad.com/logo.jpg"],
   },
 };
@@ -80,6 +132,14 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* 🔥 STRUCTURED DATA (VERY IMPORTANT FOR AI SEO) */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(ORGANIZATION_LD_JSON),
+          }}
+        />
+
         {/* Google Tag Manager */}
         <Script
           id="gtm"
@@ -93,7 +153,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
           }}
         />
 
-        {/* Meta Pixel (All 3 IDs Combined) */}
+        {/* Meta Pixel */}
         <Script
           id="meta-pixel"
           strategy="afterInteractive"
@@ -111,7 +171,6 @@ s.parentNode.insertBefore(t,s)}(window, document,'script',
 fbq('init', '820661157705137');
 fbq('init', '1548666406233185');
 fbq('init', '857404480130156');
-
 fbq('track', 'PageView');
             `,
           }}
@@ -136,26 +195,6 @@ fbq('track', 'PageView');
             width="1"
             style={{ display: "none" }}
             src="https://www.facebook.com/tr?id=820661157705137&ev=PageView&noscript=1"
-            alt=""
-          />
-        </noscript>
-
-        <noscript>
-          <img
-            height="1"
-            width="1"
-            style={{ display: "none" }}
-            src="https://www.facebook.com/tr?id=1548666406233185&ev=PageView&noscript=1"
-            alt=""
-          />
-        </noscript>
-
-        <noscript>
-          <img
-            height="1"
-            width="1"
-            style={{ display: "none" }}
-            src="https://www.facebook.com/tr?id=857404480130156&ev=PageView&noscript=1"
             alt=""
           />
         </noscript>

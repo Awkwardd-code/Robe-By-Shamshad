@@ -1,11 +1,18 @@
-import React from "react";
+import type { Metadata } from "next";
 import EidSlider from "./_components/HomeSlider";
 import CategorySlider from "./_components/CategorySlider";
 import MostPopularSlider from "./_components/MostPopularSlider";
-import BestSellerSlider from "./_components/BestSellerSlider";
-import ProductGrid from "./_components/ProductGrid";
 import FeaturesGrid from "./_components/FeaturesGrid";
 import EidNewsletterPage from "./_components/EidNewsletterPage";
+
+export const metadata: Metadata = {
+  title: "Robe by Shamshad | Premium Clothing & Apparel in Dhaka, Bangladesh",
+  description:
+    "Robe by Shamshad is a premium clothing brand in Dhaka, Bangladesh, operating under Bites Shop Company Bangladesh Ltd. Explore modern apparel collections for men and women.",
+  alternates: {
+    canonical: "/",
+  },
+};
 
 const page = () => {
   return (
@@ -13,8 +20,6 @@ const page = () => {
       <EidSlider />
       <CategorySlider title="Shop by Category" />
       <MostPopularSlider />
-      {/* <ProductGrid /> */}
-      {/* <BestSellerSlider /> */}
       <EidNewsletterPage />
       <FeaturesGrid />
     </div>

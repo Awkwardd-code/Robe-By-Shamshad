@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import ProductDetail from "@/components/Product/ProductDetail";
@@ -78,6 +79,53 @@ async function ProductDetailSection({ slug }: { slug: string }) {
 
   const product = mapProduct(apiProduct);
   return <ProductDetail product={product} />;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+
+  try {
+    const apiProduct = await fetchProductBySlug(slug);
+
+    if (apiProduct) {
+      const product = mapProduct(apiProduct);
+      const productDescription =
+        product.summary ||
+        product.description ||
+        `Discover ${product.name} from Robe by Shamshad, premium apparel in Dhaka, Bangladesh.`;
+
+      return {
+        title: `${product.name} | Robe by Shamshad`,
+        description: productDescription,
+        alternates: {
+          canonical: `/products/${encodeURIComponent(product.slug || slug)}`,
+        },
+        openGraph: {
+          title: `${product.name} | Robe by Shamshad`,
+          description: productDescription,
+          type: "website",
+          images: product.image ? [{ url: product.image, alt: product.name }] : undefined,
+        },
+      };
+    }
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : String(error ?? "Unknown error");
+    console.error(`[product-page] Metadata load failed for "${slug}": ${errorMessage}`);
+  }
+
+  return {
+    title: "Product | Robe by Shamshad",
+    description:
+      "Explore premium clothing and apparel from Robe by Shamshad in Dhaka, Bangladesh.",
+    alternates: {
+      canonical: `/products/${encodeURIComponent(slug)}`,
+    },
+  };
 }
 
 export default async function ProductPage({
