@@ -38,10 +38,6 @@ const ORGANIZATION_LD_JSON = {
   image: "https://robe.byshamshad.com/logo.jpg",
   description:
     "Robe by Shamshad is a premium clothing brand in Dhaka, Bangladesh offering modern apparel for men and women.",
-  parentOrganization: {
-    "@type": "Organization",
-    name: "Bites Shop Company Bangladesh Ltd.",
-  },
   address: {
     "@type": "PostalAddress",
     streetAddress: "Niketan, Gulshan 1",
