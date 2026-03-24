@@ -34,6 +34,10 @@ interface ShippingAddress {
     city: string;
     zipCode: string;
     phone?: string;
+    nidFrontImage?: string;
+    nidBackImage?: string;
+    nidFrontPublicId?: string;
+    nidBackPublicId?: string;
 }
 
 interface Order {
@@ -855,6 +859,75 @@ const OrderPage: React.FC = () => {
                                                             </p>
                                                         )}
                                                     </div>
+                                                </div>
+
+                                                {/* NID Verification */}
+                                                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
+                                                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                                                        NID Verification
+                                                    </h4>
+
+                                                    {selectedOrder.shippingAddress.nidFrontImage || selectedOrder.shippingAddress.nidBackImage ? (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            <div>
+                                                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                                                                    NID Front
+                                                                </p>
+                                                                {selectedOrder.shippingAddress.nidFrontImage ? (
+                                                                    <a
+                                                                        href={selectedOrder.shippingAddress.nidFrontImage}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="block"
+                                                                    >
+                                                                        <div className="relative h-48 w-full rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                                                            <Image
+                                                                                src={selectedOrder.shippingAddress.nidFrontImage}
+                                                                                alt="NID Front"
+                                                                                fill
+                                                                                className="object-cover"
+                                                                            />
+                                                                        </div>
+                                                                    </a>
+                                                                ) : (
+                                                                    <div className="h-48 w-full rounded-xl border border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center bg-gray-50 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                                                                        NID front image not uploaded
+                                                                    </div>
+                                                                )}
+                                                            </div>
+
+                                                            <div>
+                                                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                                                                    NID Back
+                                                                </p>
+                                                                {selectedOrder.shippingAddress.nidBackImage ? (
+                                                                    <a
+                                                                        href={selectedOrder.shippingAddress.nidBackImage}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="block"
+                                                                    >
+                                                                        <div className="relative h-48 w-full rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                                                            <Image
+                                                                                src={selectedOrder.shippingAddress.nidBackImage}
+                                                                                alt="NID Back"
+                                                                                fill
+                                                                                className="object-cover"
+                                                                            />
+                                                                        </div>
+                                                                    </a>
+                                                                ) : (
+                                                                    <div className="h-48 w-full rounded-xl border border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center bg-gray-50 dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400">
+                                                                        NID back image not uploaded
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4 text-sm text-gray-600 dark:text-gray-300">
+                                                            No NID images found for this order.
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {/* Order Items - Detailed View */}

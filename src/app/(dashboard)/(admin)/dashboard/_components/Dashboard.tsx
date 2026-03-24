@@ -1207,8 +1207,15 @@ const Products: React.FC = () => {
 
             <div className="flex flex-col items-center mb-10">
                 <div className="flex items-center gap-4 mb-6">
-                    <div className="w-20 h-20 rounded-full bg-linear-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg">
-                        <span className="text-2xl font-bold text-white">RBS</span>
+                    <div className="relative h-20 w-20 overflow-hidden rounded-full border border-gray-200 bg-white shadow-lg dark:border-gray-700">
+                        <Image
+                            src="/logo.jpg"
+                            alt="ROBE by Shamshad logo"
+                            fill
+                            sizes="80px"
+                            className="object-cover"
+                            priority
+                        />
                     </div>
                     <h1 className="text-5xl font-extrabold text-gray-900 dark:text-white tracking-tight">
                         Robe By Shamshad

@@ -17,6 +17,8 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  UploadCloud,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -88,7 +90,32 @@ type AvailableCoupon = {
   discountedPrice?: number;
 };
 
+type NidImageField = {
+  imageUrl: string;
+  publicId: string;
+  fileName: string;
+  isUploading: boolean;
+  isDragging: boolean;
+  error: string | null;
+};
+
 const currencyFormatter = new Intl.NumberFormat("en-US");
+const ACCEPTED_NID_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+];
+const MAX_NID_IMAGE_SIZE = 5 * 1024 * 1024;
+
+const createEmptyNidField = (): NidImageField => ({
+  imageUrl: "",
+  publicId: "",
+  fileName: "",
+  isUploading: false,
+  isDragging: false,
+  error: null,
+});
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -353,6 +380,14 @@ export default function CheckoutPage() {
     deliveryTime: "anytime",
     paymentMethod: "cash_on_delivery",
   });
+  const [nidFrontImage, setNidFrontImage] = useState<NidImageField>(
+    createEmptyNidField
+  );
+  const [nidBackImage, setNidBackImage] = useState<NidImageField>(
+    createEmptyNidField
+  );
+  const nidFrontInputRef = useRef<HTMLInputElement | null>(null);
+  const nidBackInputRef = useRef<HTMLInputElement | null>(null);
 
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -530,6 +565,167 @@ export default function CheckoutPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const setNidFieldState = useCallback(
+    (
+      side: "front" | "back",
+      updater: NidImageField | ((prev: NidImageField) => NidImageField)
+    ) => {
+      if (side === "front") {
+        setNidFrontImage((prev) =>
+          typeof updater === "function"
+            ? (updater as (prev: NidImageField) => NidImageField)(prev)
+            : updater
+        );
+        return;
+      }
+
+      setNidBackImage((prev) =>
+        typeof updater === "function"
+          ? (updater as (prev: NidImageField) => NidImageField)(prev)
+          : updater
+      );
+    },
+    []
+  );
+
+  const validateNidImageFile = (file: File): string | null => {
+    if (!ACCEPTED_NID_IMAGE_TYPES.includes(file.type.toLowerCase())) {
+      return "Please upload a valid NID image (JPG, PNG, or WebP).";
+    }
+
+    if (file.size > MAX_NID_IMAGE_SIZE) {
+      return "Each NID image must be smaller than 5MB.";
+    }
+
+    return null;
+  };
+
+  const uploadNidImage = async (side: "front" | "back", file: File) => {
+    const validationError = validateNidImageFile(file);
+    if (validationError) {
+      setNidFieldState(side, (prev) => ({
+        ...prev,
+        error: validationError,
+        isUploading: false,
+        isDragging: false,
+      }));
+      return;
+    }
+
+    const existingPublicId =
+      side === "front" ? nidFrontImage.publicId : nidBackImage.publicId;
+
+    setNidFieldState(side, (prev) => ({
+      ...prev,
+      isUploading: true,
+      error: null,
+      isDragging: false,
+    }));
+
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      if (existingPublicId) {
+        form.append("oldPublicId", existingPublicId);
+      }
+
+      const response = await fetch("/api/cloudinary/upload", {
+        method: existingPublicId ? "PUT" : "POST",
+        body: form,
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to upload NID image.");
+      }
+
+      setNidFieldState(side, (prev) => ({
+        ...prev,
+        imageUrl: typeof data?.imageUrl === "string" ? data.imageUrl : "",
+        publicId: typeof data?.publicId === "string" ? data.publicId : "",
+        fileName: file.name,
+        isUploading: false,
+        isDragging: false,
+        error: null,
+      }));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to upload NID image.";
+      setNidFieldState(side, (prev) => ({
+        ...prev,
+        isUploading: false,
+        isDragging: false,
+        error: message,
+      }));
+    }
+  };
+
+  const handleNidFileChange = async (
+    side: "front" | "back",
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadNidImage(side, file);
+    }
+    e.target.value = "";
+  };
+
+  const handleNidDrop = async (
+    side: "front" | "back",
+    e: React.DragEvent<HTMLDivElement>
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      await uploadNidImage(side, file);
+      return;
+    }
+    setNidFieldState(side, (prev) => ({ ...prev, isDragging: false }));
+  };
+
+  const handleNidDragOver = (
+    side: "front" | "back",
+    e: React.DragEvent<HTMLDivElement>
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setNidFieldState(side, (prev) => ({ ...prev, isDragging: true }));
+  };
+
+  const handleNidDragLeave = (
+    side: "front" | "back",
+    e: React.DragEvent<HTMLDivElement>
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setNidFieldState(side, (prev) => ({ ...prev, isDragging: false }));
+  };
+
+  const handleRemoveNidImage = async (side: "front" | "back") => {
+    const currentField = side === "front" ? nidFrontImage : nidBackImage;
+    if (currentField.publicId) {
+      try {
+        await fetch(
+          `/api/cloudinary/upload?publicId=${encodeURIComponent(currentField.publicId)}`,
+          { method: "DELETE" }
+        );
+      } catch {
+        // noop: local reset should not be blocked by cleanup failure
+      }
+    }
+
+    setNidFieldState(side, createEmptyNidField());
+  };
+
+  const openNidPicker = (side: "front" | "back") => {
+    if (side === "front") {
+      nidFrontInputRef.current?.click();
+      return;
+    }
+    nidBackInputRef.current?.click();
+  };
+
   // ==================== PRICE CALCULATIONS ====================
 
   const baseSubtotal = checkoutItems.reduce(
@@ -693,6 +889,8 @@ export default function CheckoutPage() {
     if (!formData.streetAddress.trim()) return "Please enter your street address.";
     if (!formData.city.trim()) return "Please enter your city.";
     if (!formData.zipCode.trim()) return "Please enter your ZIP/postal code.";
+    if (!nidFrontImage.imageUrl) return "Please upload your NID front image.";
+    if (!nidBackImage.imageUrl) return "Please upload your NID back image.";
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email))
@@ -720,6 +918,8 @@ export default function CheckoutPage() {
       formData.streetAddress.trim() !== "" &&
       formData.city.trim() !== "" &&
       formData.zipCode.trim() !== "" &&
+      nidFrontImage.imageUrl !== "" &&
+      nidBackImage.imageUrl !== "" &&
       isDeliveryChargeSelected()
     );
   };
@@ -795,6 +995,10 @@ export default function CheckoutPage() {
           apartment: formData.apartment,
           city: formData.city,
           zipCode: formData.zipCode,
+          nidFrontImage: nidFrontImage.imageUrl,
+          nidBackImage: nidBackImage.imageUrl,
+          nidFrontPublicId: nidFrontImage.publicId,
+          nidBackPublicId: nidBackImage.publicId,
         },
         payment: {
           method: formData.paymentMethod,
@@ -1101,6 +1305,220 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
+                {/* NID Uploads */}
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-gray-800">
+                    NID Verification (Front & Back){" "}
+                    <span className="text-red-600">*</span>
+                  </label>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Upload clear NID front and back images. Both are required to
+                    confirm your order.
+                  </p>
+
+                  <div className="mt-2 grid grid-cols-2 gap-4">
+                    <div
+                      className={`rounded-[3px] border p-3 cursor-pointer ${
+                        nidFrontImage.isDragging
+                          ? "border-gray-600 bg-gray-50"
+                          : "border-gray-200 bg-white"
+                      }`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        if (!nidFrontImage.isUploading) openNidPicker("front");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          if (!nidFrontImage.isUploading) openNidPicker("front");
+                        }
+                      }}
+                      onDragOver={(e) => handleNidDragOver("front", e)}
+                      onDragLeave={(e) => handleNidDragLeave("front", e)}
+                      onDrop={(e) => handleNidDrop("front", e)}
+                    >
+                      <input
+                        ref={nidFrontInputRef}
+                        type="file"
+                        accept={ACCEPTED_NID_IMAGE_TYPES.join(",")}
+                        className="hidden"
+                        onChange={(e) => {
+                          void handleNidFileChange("front", e);
+                        }}
+                      />
+                      <div className="mb-2 text-xs font-semibold text-gray-800">
+                        NID Front Image <span className="text-red-600">*</span>
+                      </div>
+
+                      {nidFrontImage.imageUrl ? (
+                        <div className="relative h-36 w-full overflow-hidden rounded-[3px] border border-gray-200">
+                          <Image
+                            src={nidFrontImage.imageUrl}
+                            alt="NID front preview"
+                            fill
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex h-36 w-full flex-col items-center justify-center rounded-[3px] border border-dashed border-gray-300 bg-gray-50 text-center">
+                          <UploadCloud className="h-6 w-6 text-gray-400" />
+                          <p className="mt-2 text-xs text-gray-600">
+                            Drag & drop NID front image
+                          </p>
+                          <p className="text-[11px] text-gray-500">JPG, PNG, WebP (max 5MB)</p>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openNidPicker("front");
+                          }}
+                          disabled={nidFrontImage.isUploading}
+                          className="inline-flex h-9 items-center gap-2 rounded-[3px] border border-gray-300 px-3 text-xs font-semibold text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {nidFrontImage.isUploading ? (
+                            <>
+                              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-500 border-t-transparent" />
+                              Uploading...
+                            </>
+                          ) : nidFrontImage.imageUrl ? (
+                            "Add New Image"
+                          ) : (
+                            "Upload Image"
+                          )}
+                        </button>
+                        {nidFrontImage.imageUrl && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleRemoveNidImage("front");
+                            }}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-[3px] border border-red-200 px-3 text-xs font-semibold text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      {nidFrontImage.fileName && (
+                        <p className="mt-2 text-[11px] text-gray-500 truncate">
+                          {nidFrontImage.fileName}
+                        </p>
+                      )}
+                      {nidFrontImage.error && (
+                        <p className="mt-2 text-[11px] text-red-600">{nidFrontImage.error}</p>
+                      )}
+                    </div>
+
+                    <div
+                      className={`rounded-[3px] border p-3 cursor-pointer ${
+                        nidBackImage.isDragging
+                          ? "border-gray-600 bg-gray-50"
+                          : "border-gray-200 bg-white"
+                      }`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        if (!nidBackImage.isUploading) openNidPicker("back");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          if (!nidBackImage.isUploading) openNidPicker("back");
+                        }
+                      }}
+                      onDragOver={(e) => handleNidDragOver("back", e)}
+                      onDragLeave={(e) => handleNidDragLeave("back", e)}
+                      onDrop={(e) => handleNidDrop("back", e)}
+                    >
+                      <input
+                        ref={nidBackInputRef}
+                        type="file"
+                        accept={ACCEPTED_NID_IMAGE_TYPES.join(",")}
+                        className="hidden"
+                        onChange={(e) => {
+                          void handleNidFileChange("back", e);
+                        }}
+                      />
+                      <div className="mb-2 text-xs font-semibold text-gray-800">
+                        NID Back Image <span className="text-red-600">*</span>
+                      </div>
+
+                      {nidBackImage.imageUrl ? (
+                        <div className="relative h-36 w-full overflow-hidden rounded-[3px] border border-gray-200">
+                          <Image
+                            src={nidBackImage.imageUrl}
+                            alt="NID back preview"
+                            fill
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex h-36 w-full flex-col items-center justify-center rounded-[3px] border border-dashed border-gray-300 bg-gray-50 text-center">
+                          <UploadCloud className="h-6 w-6 text-gray-400" />
+                          <p className="mt-2 text-xs text-gray-600">
+                            Drag & drop NID back image
+                          </p>
+                          <p className="text-[11px] text-gray-500">JPG, PNG, WebP (max 5MB)</p>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openNidPicker("back");
+                          }}
+                          disabled={nidBackImage.isUploading}
+                          className="inline-flex h-9 items-center gap-2 rounded-[3px] border border-gray-300 px-3 text-xs font-semibold text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          {nidBackImage.isUploading ? (
+                            <>
+                              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-500 border-t-transparent" />
+                              Uploading...
+                            </>
+                          ) : nidBackImage.imageUrl ? (
+                            "Add New Image"
+                          ) : (
+                            "Upload Image"
+                          )}
+                        </button>
+                        {nidBackImage.imageUrl && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleRemoveNidImage("back");
+                            }}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-[3px] border border-red-200 px-3 text-xs font-semibold text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      {nidBackImage.fileName && (
+                        <p className="mt-2 text-[11px] text-gray-500 truncate">
+                          {nidBackImage.fileName}
+                        </p>
+                      )}
+                      {nidBackImage.error && (
+                        <p className="mt-2 text-[11px] text-red-600">{nidBackImage.error}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Delivery time */}
                 <div className="mb-4">
                   <label className="block text-xs font-semibold text-gray-800">
@@ -1380,7 +1798,8 @@ export default function CheckoutPage() {
 
                   {!isFormValid() && (
                     <p className="mt-2 text-[11px] text-gray-500">
-                      Please fill all required fields and select delivery option.
+                      Please fill all required fields, upload NID front/back images,
+                      and select delivery option.
                     </p>
                   )}
 

@@ -1356,7 +1356,7 @@ export default function ComboOfferDetail({
                       <span>{comboButtonLabel}</span>
                     </button>
 
-                    {/* Buy Now */}
+                    {/* Free Trial */}
                     <button
                       onClick={handleBuyNow}
                       disabled={!inStock || !isActive}
@@ -1368,7 +1368,7 @@ export default function ComboOfferDetail({
                           : "border-2 border-slate-200 bg-[#6B0F1A] text-slate-400",
                       ].join(" ")}
                     >
-                      Buy Now
+                      Free Trial
                     </button>
                   </div>
                 </div>

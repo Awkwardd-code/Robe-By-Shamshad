@@ -207,7 +207,7 @@ function CategoryTile({
               )}
 
               <span className="mt-3 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-[11px] sm:text-xs font-semibold text-black">
-                Shop now
+                Free Trial
                 <ArrowRight className="h-4 w-4" />
               </span>
             </div>

@@ -112,10 +112,19 @@ export async function POST(request: NextRequest) {
     const streetAddress = asString(shippingAddress.streetAddress);
     const city = asString(shippingAddress.city);
     const zipCode = asString(shippingAddress.zipCode);
+    const nidFrontImage = asString(shippingAddress.nidFrontImage);
+    const nidBackImage = asString(shippingAddress.nidBackImage);
 
     if (!fullName || !email || !phone || !streetAddress || !city || !zipCode) {
       return NextResponse.json(
         { error: "Incomplete shipping address information" },
+        { status: 400 }
+      );
+    }
+
+    if (!nidFrontImage || !nidBackImage) {
+      return NextResponse.json(
+        { error: "Both NID front and back images are required." },
         { status: 400 }
       );
     }
@@ -166,6 +175,10 @@ export async function POST(request: NextRequest) {
         apartment: asString(shippingAddress.apartment) || null,
         city,
         zipCode,
+        nidFrontImage,
+        nidBackImage,
+        nidFrontPublicId: asString(shippingAddress.nidFrontPublicId) || null,
+        nidBackPublicId: asString(shippingAddress.nidBackPublicId) || null,
       },
       payment: {
         method: paymentMethod,

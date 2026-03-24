@@ -1293,7 +1293,7 @@ function ComboCard({
             "opacity-100 lg:opacity-0 lg:group-hover:opacity-100",
           ].join(" ")}
         >
-          {!offer.isActive ? "OFFER EXPIRED" : outOfStock ? "OUT OF STOCK" : isInCart ? "IN CART" : "SHOP NOW"}
+          {!offer.isActive ? "OFFER EXPIRED" : outOfStock ? "OUT OF STOCK" : isInCart ? "IN CART" : "Free Trial"}
         </button>
       </div>
     </motion.div>
@@ -1440,7 +1440,7 @@ function ComboListItem({
             >
               <span className="inline-flex items-center gap-2">
                 <ShoppingBag className="w-4 h-4" />
-                {!offer.isActive ? "EXPIRED" : outOfStock ? "OUT OF STOCK" : isInCart ? "IN CART" : "SHOP NOW"}
+                {!offer.isActive ? "EXPIRED" : outOfStock ? "OUT OF STOCK" : isInCart ? "IN CART" : "Free Trial"}
               </span>
             </button>
 

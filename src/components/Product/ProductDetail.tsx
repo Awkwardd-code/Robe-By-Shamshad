@@ -1375,9 +1375,9 @@ function ProductDetailContent({ product }: { product: Product }) {
                         <span>{productIsInCart ? "In Cart" : inStock ? "Add to Cart" : "Sold Out"}</span>
                       </PrimaryButton>
 
-                      {/* Buy Now */}
+                      {/* Free Trial */}
                       <SecondaryButton disabled={!inStock} onClick={handleBuyNow} className="flex-1">
-                        Buy Now
+                        Free Trial
                       </SecondaryButton>
                     </div>
                   </div>

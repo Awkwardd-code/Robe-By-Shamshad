@@ -1411,7 +1411,7 @@ function ProductCard({
             "opacity-100 lg:opacity-0 lg:group-hover:opacity-100",
           ].join(" ")}
         >
-          {isInCart ? "In cart" : "Shop now"}
+          {isInCart ? "In cart" : "Free Trial"}
         </button>
       </div>
     </motion.div>
@@ -1544,7 +1544,7 @@ function ProductListItem({
             >
               <span className="inline-flex items-center gap-2">
                 <ShoppingBag className="w-4 h-4" />
-                {isInCart ? "In cart" : "Shop now"}
+                {isInCart ? "In cart" : "Free Trial"}
               </span>
             </button>
 

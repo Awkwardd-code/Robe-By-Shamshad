@@ -7,7 +7,7 @@ import WhatsAppFloatingButton from "@/components/WhatsAppFloatingButton";
 
 const WHATSAPP_NUMBER = "8801401836480";
 const WHATSAPP_MESSAGE =
-  "Hi ROBE by Shamshad! I love your sustainable luxury and heritage craftsmanship from Bangladesh. Please help me choose a piece from your latest collection.";
+  "Hi ROBE by Shamshad! I am interested in your FREE TRIAL offer. Please note that the FREE TRIAL is applied 3 days after purchasing. Please guide me with the next steps.";
 
 export default function RootLayout({
   children,

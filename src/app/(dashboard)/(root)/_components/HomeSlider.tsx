@@ -215,7 +215,7 @@ export default function ModernElegantSlider_EidBannerFrame() {
           subtitle: (collection.bannerDescription ?? collection.description ?? "Explore Our New Collection").toString(),
 
           // CTA like reference
-          ctaText: (collection.bannerCtaText ?? "SHOP NOW").toString(),
+          ctaText: (collection.bannerCtaText ?? "Free Trial").toString(),
           ctaLink: `/product-data?collectionSlug=${encodeURIComponent(collection.slug)}`,
 
           // Brand
