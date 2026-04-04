@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useRef } from 'react';
+import { useState, useLayoutEffect, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -15,12 +15,19 @@ function Sidebar({ sidebarOpen, setSidebarOpen, variant = 'default' }: SidebarHe
   const trigger = useRef<HTMLButtonElement | null>(null);
   const sidebar = useRef<HTMLDivElement | null>(null);
 
-  const storedSidebarExpanded =
-    typeof window !== 'undefined' ? localStorage.getItem('sidebar-expanded') : null;
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
-  const [sidebarExpanded, setSidebarExpanded] = useState(
-    storedSidebarExpanded === null ? false : storedSidebarExpanded === 'true'
-  );
+  // Hydrate sidebar-expanded value on client after mount to avoid SSR/client mismatch
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('sidebar-expanded');
+      if (stored !== null) {
+        setSidebarExpanded(stored === 'true');
+      }
+    } catch (error) {
+      console.error('Failed to read sidebar-expanded from localStorage:', error);
+    }
+  }, []);
 
   // Close on click outside
   useLayoutEffect(() => {
@@ -450,8 +457,8 @@ function Sidebar({ sidebarOpen, setSidebarOpen, variant = 'default' }: SidebarHe
                 </Link>
               </li>
 
-              {/* Subscribers */}
-             {/*  <li
+              {/* Enrollments */}
+              <li
                 className={`rounded-sm mb-1 last:mb-0 transition-all duration-200 ease-in-out ${ITEM_PAD} ${
                   isActive('/newsletter')
                     ? 'bg-linear-to-r from-emerald-500 to-lime-500 text-white shadow-lg'
@@ -483,11 +490,11 @@ function Sidebar({ sidebarOpen, setSidebarOpen, variant = 'default' }: SidebarHe
                           <path d="M1 12.118l4.708-2.909L1 6.383v5.735z" />
                         </svg>
                       </div>
-                      <span className={LABEL_VISIBILITY}>Subscribers</span>
+                      <span className={LABEL_VISIBILITY}>Enrollments</span>
                     </div>
                   </div>
                 </Link>
-              </li> */}
+              </li>
 
               {/* Coupons */}
               <li

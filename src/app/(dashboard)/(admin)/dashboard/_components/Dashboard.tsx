@@ -4,7 +4,7 @@
 'use client';
 
 import React, { useState, useEffect, Fragment, useMemo } from 'react';
-import { Search, Edit, Trash2, Plus, ChevronLeft, ChevronRight, X, Star, Package, Images, ShieldCheck, Scale, Tag, Users, Palette, Ruler, Truck } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, ChevronLeft, ChevronRight, X, Star, Package, Images, ShieldCheck, Scale, Tag, Users, Palette, Ruler, Truck, Mail, Clock3 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Dialog, Listbox, Transition } from '@headlessui/react';
 import Image from 'next/image';
@@ -112,6 +112,23 @@ interface UploadedImage {
     url: string;
     publicId: string;
     isThumbnail: boolean;
+}
+
+interface NewsletterDashboardSubscriber {
+    _id?: string;
+    name?: string;
+    email: string;
+    source?: string;
+    createdAt: string;
+}
+
+interface NewsletterDashboardResponse {
+    subscribers: NewsletterDashboardSubscriber[];
+    totalCount: number;
+    stats?: {
+        newInLast7Days?: number;
+        newInLast24Hours?: number;
+    };
 }
 
 type ModalHighlight = {
@@ -370,11 +387,37 @@ const Products: React.FC = () => {
     const statusOptions = ['in_stock', 'out_of_stock', 'discontinued'];
     const currencyOptions = ['BDT', 'USD'];
     const [pageLimit, setPageLimit] = useState<number>(DEFAULT_PAGE_LIMIT);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const [newsletterTotal, setNewsletterTotal] = useState(0);
+    const [newsletterNewInLast7Days, setNewsletterNewInLast7Days] = useState(0);
+    const [newsletterNewInLast24Hours, setNewsletterNewInLast24Hours] = useState(0);
+    const [recentSubscribers, setRecentSubscribers] = useState<NewsletterDashboardSubscriber[]>([]);
+    const [isFetchingNewsletterOverview, setIsFetchingNewsletterOverview] = useState(false);
 
     // Helper function for calculating discount percentage
     const calculateDiscount = (original: number, current: number) => {
         if (original <= 0) return 0;
         return Math.round(((original - current) / original) * 100);
+    };
+
+    const formatSourceLabel = (source?: string) => {
+        if (!source) return 'Unknown';
+        return source
+            .split('-')
+            .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
+            .join(' ');
+    };
+
+    const formatCompactDate = (isoDate?: string) => {
+        if (!isoDate) return 'N/A';
+        const parsed = new Date(isoDate);
+        if (Number.isNaN(parsed.getTime())) return 'N/A';
+        return parsed.toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
     };
 
     // Fetch categories from API - fallback to fashion categories if API fails
@@ -616,6 +659,7 @@ const Products: React.FC = () => {
                     const data = await response.json();
                     setProducts(data.products || []);
                     setTotalPages(data.totalPages || 1);
+                    setTotalProducts(typeof data.totalCount === 'number' ? data.totalCount : 0);
                     const resolvedLimit =
                         typeof data.pageLimit === 'number' && data.pageLimit > 0
                             ? data.pageLimit
@@ -634,6 +678,37 @@ const Products: React.FC = () => {
         };
         fetchProducts();
     }, [currentPage, searchTerm]);
+
+    useEffect(() => {
+        const fetchNewsletterOverview = async () => {
+            setIsFetchingNewsletterOverview(true);
+            try {
+                const response = await fetch('/api/newsletter?page=1&limit=5', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    cache: 'no-store',
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch newsletter overview');
+                }
+
+                const data = (await response.json()) as NewsletterDashboardResponse;
+                setRecentSubscribers(Array.isArray(data.subscribers) ? data.subscribers : []);
+                setNewsletterTotal(typeof data.totalCount === 'number' ? data.totalCount : 0);
+                setNewsletterNewInLast7Days(data.stats?.newInLast7Days ?? 0);
+                setNewsletterNewInLast24Hours(data.stats?.newInLast24Hours ?? 0);
+            } catch (error) {
+                console.error('Fetch newsletter overview error:', error);
+            } finally {
+                setIsFetchingNewsletterOverview(false);
+            }
+        };
+
+        fetchNewsletterOverview();
+    }, []);
 
     const handlePageChange = (page: number) => {
         setCurrentPage(page);
@@ -1224,6 +1299,112 @@ const Products: React.FC = () => {
                 <p className="text-lg text-gray-600 dark:text-gray-300 text-center max-w-2xl mb-4">
                     Modest Fashion Collection - Elegant Abayas, Hijabs & Islamic Attire
                 </p>
+            </div>
+
+            <div className="mx-auto mb-8 grid max-w-7xl grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800/95">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Products</p>
+                        <Package className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <p className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{totalProducts}</p>
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Across the full catalog</p>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800/95">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Enrollments</p>
+                        <Users className="h-5 w-5 text-emerald-500" />
+                    </div>
+                    <p className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{newsletterTotal}</p>
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Unique newsletter subscribers</p>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800/95">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Last 7 Days</p>
+                        <Mail className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <p className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{newsletterNewInLast7Days}</p>
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">New preview enrollments</p>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-white/95 p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800/95">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Last 24 Hours</p>
+                        <Clock3 className="h-5 w-5 text-amber-500" />
+                    </div>
+                    <p className="mt-3 text-3xl font-bold text-gray-900 dark:text-white">{newsletterNewInLast24Hours}</p>
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Latest enrollments today</p>
+                </div>
+            </div>
+
+            <div className="mx-auto mb-8 max-w-7xl rounded-3xl border border-gray-200 bg-white/95 shadow-sm dark:border-gray-700 dark:bg-gray-800/95">
+                <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+                    <div>
+                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Recent Enrollments</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Latest users from preview form</p>
+                    </div>
+                    <a
+                        href="/newsletter"
+                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    >
+                        View All
+                    </a>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900/40">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                    Name
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                    Email
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                    Source
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-300">
+                                    Joined At
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 bg-white dark:divide-gray-800 dark:bg-gray-900/20">
+                            {isFetchingNewsletterOverview ? (
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                                        Loading recent enrollments...
+                                    </td>
+                                </tr>
+                            ) : recentSubscribers.length === 0 ? (
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                                        No enrollments found yet.
+                                    </td>
+                                </tr>
+                            ) : (
+                                recentSubscribers.map((subscriber) => (
+                                    <tr key={subscriber._id || subscriber.email}>
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
+                                            {subscriber.name || 'N/A'}
+                                        </td>
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                            {subscriber.email}
+                                        </td>
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                                            {formatSourceLabel(subscriber.source)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                                            {formatCompactDate(subscriber.createdAt)}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div className="max-w-7xl mx-auto rounded-3xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-800/95 shadow-lg overflow-hidden">
