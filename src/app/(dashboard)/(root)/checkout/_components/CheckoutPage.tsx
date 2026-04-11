@@ -99,6 +99,17 @@ type NidImageField = {
   error: string | null;
 };
 
+type NidExtractedData = {
+  fullName: string;
+  nidNumber: string;
+  dateOfBirth: string;
+  fatherName: string;
+  motherName: string;
+  address: string;
+};
+
+type NidExtractionStatus = "idle" | "extracting" | "success" | "failed";
+
 const currencyFormatter = new Intl.NumberFormat("en-US");
 const ACCEPTED_NID_IMAGE_TYPES = [
   "image/jpeg",
@@ -116,6 +127,32 @@ const createEmptyNidField = (): NidImageField => ({
   isDragging: false,
   error: null,
 });
+
+const createEmptyNidExtractedData = (): NidExtractedData => ({
+  fullName: "",
+  nidNumber: "",
+  dateOfBirth: "",
+  fatherName: "",
+  motherName: "",
+  address: "",
+});
+
+const normalizeNidExtractedData = (value: unknown): NidExtractedData => {
+  if (!value || typeof value !== "object") {
+    return createEmptyNidExtractedData();
+  }
+
+  const candidate = value as Partial<NidExtractedData>;
+  return {
+    fullName: typeof candidate.fullName === "string" ? candidate.fullName : "",
+    nidNumber: typeof candidate.nidNumber === "string" ? candidate.nidNumber : "",
+    dateOfBirth:
+      typeof candidate.dateOfBirth === "string" ? candidate.dateOfBirth : "",
+    fatherName: typeof candidate.fatherName === "string" ? candidate.fatherName : "",
+    motherName: typeof candidate.motherName === "string" ? candidate.motherName : "",
+    address: typeof candidate.address === "string" ? candidate.address : "",
+  };
+};
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -388,6 +425,17 @@ export default function CheckoutPage() {
   );
   const nidFrontInputRef = useRef<HTMLInputElement | null>(null);
   const nidBackInputRef = useRef<HTMLInputElement | null>(null);
+  const [nidExtractedData, setNidExtractedData] = useState<NidExtractedData>(
+    createEmptyNidExtractedData
+  );
+  const [nidExtractionStatus, setNidExtractionStatus] =
+    useState<NidExtractionStatus>("idle");
+  const [nidExtractionMessage, setNidExtractionMessage] = useState<string | null>(
+    null
+  );
+  const [nidExtractionMeta, setNidExtractionMeta] = useState<Record<string, unknown> | null>(
+    null
+  );
 
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
@@ -565,6 +613,70 @@ export default function CheckoutPage() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleNidExtractedInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setNidExtractedData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const resetNidExtractionState = useCallback(() => {
+    setNidExtractedData(createEmptyNidExtractedData());
+    setNidExtractionStatus("idle");
+    setNidExtractionMessage(null);
+    setNidExtractionMeta(null);
+  }, []);
+
+  const handleExtractNidData = useCallback(async () => {
+    if (!nidFrontImage.imageUrl || !nidBackImage.imageUrl) {
+      setNidExtractionStatus("failed");
+      setNidExtractionMessage("Upload both NID front and back images first.");
+      return;
+    }
+
+    setNidExtractionStatus("extracting");
+    setNidExtractionMessage(null);
+
+    try {
+      const response = await fetch("/api/nid/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          frontImageUrl: nidFrontImage.imageUrl,
+          backImageUrl: nidBackImage.imageUrl,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || "Failed to extract NID data.");
+      }
+
+      const extracted = normalizeNidExtractedData(data?.extractedData);
+      setNidExtractedData(extracted);
+      setNidExtractionStatus("success");
+      setNidExtractionMeta(
+        data?.extractionMeta && typeof data.extractionMeta === "object"
+          ? data.extractionMeta
+          : null
+      );
+      setNidExtractionMessage("NID data extracted. Review and update if needed.");
+
+      setFormData((prev) => ({
+        ...prev,
+        fullName: prev.fullName.trim() ? prev.fullName : extracted.fullName,
+        streetAddress: prev.streetAddress.trim()
+          ? prev.streetAddress
+          : extracted.address,
+      }));
+    } catch (error) {
+      setNidExtractionStatus("failed");
+      setNidExtractionMessage(
+        error instanceof Error ? error.message : "Failed to extract NID data."
+      );
+    }
+  }, [nidFrontImage.imageUrl, nidBackImage.imageUrl]);
+
   const setNidFieldState = useCallback(
     (
       side: "front" | "back",
@@ -614,6 +726,8 @@ export default function CheckoutPage() {
 
     const existingPublicId =
       side === "front" ? nidFrontImage.publicId : nidBackImage.publicId;
+
+    resetNidExtractionState();
 
     setNidFieldState(side, (prev) => ({
       ...prev,
@@ -716,6 +830,7 @@ export default function CheckoutPage() {
     }
 
     setNidFieldState(side, createEmptyNidField());
+    resetNidExtractionState();
   };
 
   const openNidPicker = (side: "front" | "back") => {
@@ -891,6 +1006,10 @@ export default function CheckoutPage() {
     if (!formData.zipCode.trim()) return "Please enter your ZIP/postal code.";
     if (!nidFrontImage.imageUrl) return "Please upload your NID front image.";
     if (!nidBackImage.imageUrl) return "Please upload your NID back image.";
+    if (!nidExtractedData.fullName.trim())
+      return "Please provide name from your NID data.";
+    if (!nidExtractedData.nidNumber.trim())
+      return "Please provide your NID number.";
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email))
@@ -920,6 +1039,8 @@ export default function CheckoutPage() {
       formData.zipCode.trim() !== "" &&
       nidFrontImage.imageUrl !== "" &&
       nidBackImage.imageUrl !== "" &&
+      nidExtractedData.fullName.trim() !== "" &&
+      nidExtractedData.nidNumber.trim() !== "" &&
       isDeliveryChargeSelected()
     );
   };
@@ -999,6 +1120,16 @@ export default function CheckoutPage() {
           nidBackImage: nidBackImage.imageUrl,
           nidFrontPublicId: nidFrontImage.publicId,
           nidBackPublicId: nidBackImage.publicId,
+          nidExtractedData: {
+            fullName: nidExtractedData.fullName.trim(),
+            nidNumber: nidExtractedData.nidNumber.trim(),
+            dateOfBirth: nidExtractedData.dateOfBirth.trim(),
+            fatherName: nidExtractedData.fatherName.trim(),
+            motherName: nidExtractedData.motherName.trim(),
+            address: nidExtractedData.address.trim(),
+          },
+          nidExtractionMeta,
+          nidExtractionStatus,
         },
         payment: {
           method: formData.paymentMethod,
@@ -1151,6 +1282,7 @@ export default function CheckoutPage() {
   };
 
   const hasItems = checkoutItems.length > 0;
+  const isNidImageUploading = nidFrontImage.isUploading || nidBackImage.isUploading;
 
   return (
     <div className="min-h-screen bg-white">
@@ -1293,16 +1425,16 @@ export default function CheckoutPage() {
                     <label className="block text-xs font-semibold text-gray-800">
                       ZIP/Postal Code <span className="text-red-600">*</span>
                     </label>
-                    <input
-                      type="text"
-                      name="zipCode"
-                      value={formData.zipCode}
-                      onChange={handleInputChange}
-                      placeholder="ZIP/Postal Code"
-                      className="mt-1 w-full h-10 px-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
-                      required
-                    />
-                  </div>
+	                    <input
+	                      type="text"
+	                      name="zipCode"
+	                      value={formData.zipCode}
+	                      onChange={handleInputChange}
+	                      placeholder="ZIP/Postal Code"
+	                      className="mt-1 w-full h-10 px-3 border border-gray-200 rounded-[3px] text-sm outline-none focus:border-gray-400"
+	                      required
+	                    />
+	                  </div>
                 </div>
 
                 {/* NID Uploads */}
@@ -1515,6 +1647,134 @@ export default function CheckoutPage() {
                       {nidBackImage.error && (
                         <p className="mt-2 text-[11px] text-red-600">{nidBackImage.error}</p>
                       )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-4 rounded-[3px] border border-gray-200 bg-gray-50 p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-xs font-semibold text-gray-800">
+                      Extracted NID Data
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleExtractNidData();
+                      }}
+                      disabled={
+                        !nidFrontImage.imageUrl ||
+                        !nidBackImage.imageUrl ||
+                        isNidImageUploading ||
+                        nidExtractionStatus === "extracting"
+                      }
+                      className="inline-flex h-9 items-center justify-center rounded-[3px] border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-800 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {nidExtractionStatus === "extracting" ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-500 border-t-transparent" />
+                          Extracting...
+                        </span>
+                      ) : (
+                        "Extract NID Data"
+                      )}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[11px] text-gray-500">
+                    Extract values from NID files, then review before submitting.
+                  </p>
+
+                  {nidExtractionMessage && (
+                    <p
+                      className={`mt-2 text-[11px] ${
+                        nidExtractionStatus === "failed"
+                          ? "text-red-600"
+                          : "text-green-700"
+                      }`}
+                    >
+                      {nidExtractionMessage}
+                    </p>
+                  )}
+
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700">
+                        NID Holder Name <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="fullName"
+                        value={nidExtractedData.fullName}
+                        onChange={handleNidExtractedInputChange}
+                        placeholder="Name from NID"
+                        className="mt-1 h-9 w-full rounded-[3px] border border-gray-300 bg-white px-3 text-xs outline-none focus:border-gray-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700">
+                        NID Number <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="nidNumber"
+                        value={nidExtractedData.nidNumber}
+                        onChange={handleNidExtractedInputChange}
+                        placeholder="NID number"
+                        className="mt-1 h-9 w-full rounded-[3px] border border-gray-300 bg-white px-3 text-xs outline-none focus:border-gray-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700">
+                        Date of Birth
+                      </label>
+                      <input
+                        type="text"
+                        name="dateOfBirth"
+                        value={nidExtractedData.dateOfBirth}
+                        onChange={handleNidExtractedInputChange}
+                        placeholder="DD/MM/YYYY"
+                        className="mt-1 h-9 w-full rounded-[3px] border border-gray-300 bg-white px-3 text-xs outline-none focus:border-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700">
+                        Father Name
+                      </label>
+                      <input
+                        type="text"
+                        name="fatherName"
+                        value={nidExtractedData.fatherName}
+                        onChange={handleNidExtractedInputChange}
+                        placeholder="Father name"
+                        className="mt-1 h-9 w-full rounded-[3px] border border-gray-300 bg-white px-3 text-xs outline-none focus:border-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-gray-700">
+                        Mother Name
+                      </label>
+                      <input
+                        type="text"
+                        name="motherName"
+                        value={nidExtractedData.motherName}
+                        onChange={handleNidExtractedInputChange}
+                        placeholder="Mother name"
+                        className="mt-1 h-9 w-full rounded-[3px] border border-gray-300 bg-white px-3 text-xs outline-none focus:border-gray-500"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-semibold text-gray-700">
+                        Address On NID
+                      </label>
+                      <textarea
+                        name="address"
+                        value={nidExtractedData.address}
+                        onChange={handleNidExtractedInputChange}
+                        placeholder="Address from NID"
+                        rows={2}
+                        className="mt-1 w-full rounded-[3px] border border-gray-300 bg-white px-3 py-2 text-xs outline-none focus:border-gray-500"
+                      />
                     </div>
                   </div>
                 </div>
@@ -1799,7 +2059,7 @@ export default function CheckoutPage() {
                   {!isFormValid() && (
                     <p className="mt-2 text-[11px] text-gray-500">
                       Please fill all required fields, upload NID front/back images,
-                      and select delivery option.
+                      complete extracted NID data, and select delivery option.
                     </p>
                   )}
 

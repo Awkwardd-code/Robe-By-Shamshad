@@ -38,6 +38,22 @@ interface ShippingAddress {
     nidBackImage?: string;
     nidFrontPublicId?: string;
     nidBackPublicId?: string;
+    nidExtractedData?: {
+        fullName?: string;
+        nidNumber?: string;
+        dateOfBirth?: string;
+        fatherName?: string;
+        motherName?: string;
+        address?: string;
+    } | null;
+    nidExtractionMeta?: {
+        status?: string;
+        source?: string;
+        model?: string;
+        confidence?: string;
+        notes?: string;
+        error?: string;
+    } | null;
 }
 
 interface Order {
@@ -928,6 +944,77 @@ const OrderPage: React.FC = () => {
                                                             No NID images found for this order.
                                                         </div>
                                                     )}
+
+                                                    {(() => {
+                                                        const extractedData = selectedOrder.shippingAddress.nidExtractedData;
+                                                        const hasExtractedData =
+                                                            !!extractedData &&
+                                                            Object.values(extractedData).some(
+                                                                (value) =>
+                                                                    typeof value === "string" &&
+                                                                    value.trim().length > 0
+                                                            );
+
+                                                        if (!hasExtractedData) {
+                                                            return (
+                                                                <div className="mt-4 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4 text-sm text-gray-600 dark:text-gray-300">
+                                                                    No extracted NID data saved for this order.
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        return (
+                                                            <div className="mt-4 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                                                                <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                                                                    Extracted NID Data
+                                                                </h5>
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                                                    <div>
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Name</p>
+                                                                        <p className="font-medium text-gray-900 dark:text-white">
+                                                                            {extractedData?.fullName || "N/A"}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400">NID Number</p>
+                                                                        <p className="font-medium text-gray-900 dark:text-white">
+                                                                            {extractedData?.nidNumber || "N/A"}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Date of Birth</p>
+                                                                        <p className="font-medium text-gray-900 dark:text-white">
+                                                                            {extractedData?.dateOfBirth || "N/A"}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Father Name</p>
+                                                                        <p className="font-medium text-gray-900 dark:text-white">
+                                                                            {extractedData?.fatherName || "N/A"}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Mother Name</p>
+                                                                        <p className="font-medium text-gray-900 dark:text-white">
+                                                                            {extractedData?.motherName || "N/A"}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Address</p>
+                                                                        <p className="font-medium text-gray-900 dark:text-white">
+                                                                            {extractedData?.address || "N/A"}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+
+                                                                {selectedOrder.shippingAddress.nidExtractionMeta?.status && (
+                                                                    <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                                                                        Extraction status: {selectedOrder.shippingAddress.nidExtractionMeta.status}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
                                                 </div>
 
                                                 {/* Order Items - Detailed View */}

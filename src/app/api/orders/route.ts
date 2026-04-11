@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/db/client";
+import { extractNidDataFromImages } from "@/lib/nidExtraction";
 
 const DEFAULT_PAGE_LIMIT = 10;
 const MAX_PAGE_LIMIT = 50;
@@ -37,6 +38,32 @@ type IncomingOrderItem = {
   qty?: number;
 };
 
+type IncomingNidExtractedData = {
+  fullName?: unknown;
+  nidNumber?: unknown;
+  dateOfBirth?: unknown;
+  fatherName?: unknown;
+  motherName?: unknown;
+  address?: unknown;
+};
+
+function normalizeNidExtractedData(value: IncomingNidExtractedData | null | undefined) {
+  return {
+    fullName: asString(value?.fullName),
+    nidNumber: asString(value?.nidNumber),
+    dateOfBirth: asString(value?.dateOfBirth),
+    fatherName: asString(value?.fatherName),
+    motherName: asString(value?.motherName),
+    address: asString(value?.address),
+  };
+}
+
+function hasNidExtractedData(
+  value: ReturnType<typeof normalizeNidExtractedData>
+): boolean {
+  return Object.values(value).some((item) => item.length > 0);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -59,6 +86,7 @@ export async function GET(request: NextRequest) {
         { "shippingAddress.fullName": regex },
         { "shippingAddress.email": regex },
         { "shippingAddress.phone": regex },
+        { "shippingAddress.nidExtractedData.nidNumber": regex },
         { notes: regex },
         { "items.productName": regex },
         { "payment.method": regex },
@@ -129,6 +157,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const clientNidExtractedData = normalizeNidExtractedData(
+      shippingAddress.nidExtractedData as IncomingNidExtractedData
+    );
+    const clientNidExtractionMeta =
+      shippingAddress.nidExtractionMeta &&
+      typeof shippingAddress.nidExtractionMeta === "object"
+        ? (shippingAddress.nidExtractionMeta as Record<string, unknown>)
+        : null;
+    const clientNidExtractionStatus = asString(shippingAddress.nidExtractionStatus);
+    let nidExtractedData = hasNidExtractedData(clientNidExtractedData)
+      ? clientNidExtractedData
+      : null;
+    let nidExtractionMeta: Record<string, unknown> = nidExtractedData
+      ? {
+          status: clientNidExtractionStatus || "provided_by_client",
+          source: "checkout_form",
+          extractedAt: new Date().toISOString(),
+          ...(clientNidExtractionMeta ?? {}),
+        }
+      : {
+          status: "pending",
+        };
+
+    if (!nidExtractedData) {
+      const extractionResult = await extractNidDataFromImages({
+        frontImageUrl: nidFrontImage,
+        backImageUrl: nidBackImage,
+      });
+
+      if (extractionResult.success) {
+        nidExtractedData = extractionResult.extractedData;
+        nidExtractionMeta = {
+          status: "success",
+          source: extractionResult.meta.provider,
+          model: extractionResult.meta.model,
+          confidence: extractionResult.meta.confidence,
+          notes: extractionResult.meta.notes,
+          rawText: extractionResult.meta.rawText,
+          extractedAt: extractionResult.meta.extractedAt,
+        };
+      } else {
+        nidExtractionMeta = {
+          status: "failed",
+          source: "server_auto_extract",
+          code: extractionResult.code,
+          error: extractionResult.error,
+          extractedAt: new Date().toISOString(),
+        };
+      }
+    }
+
     const productsSubtotal = asNumber(payload.productsSubtotal ?? payload.subtotal ?? 0);
     const maintenanceFee = asNumber(payload.maintenanceFee ?? 0);
     const shippingCost = asNumber(payload.shippingCost ?? payload.deliveryCharge ?? 0);
@@ -179,6 +258,8 @@ export async function POST(request: NextRequest) {
         nidBackImage,
         nidFrontPublicId: asString(shippingAddress.nidFrontPublicId) || null,
         nidBackPublicId: asString(shippingAddress.nidBackPublicId) || null,
+        nidExtractedData,
+        nidExtractionMeta,
       },
       payment: {
         method: paymentMethod,
